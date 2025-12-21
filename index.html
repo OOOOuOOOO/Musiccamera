@@ -1,836 +1,633 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>拍立得 Lofi 相機實驗室</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Tone.js CDN -->
-  <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Libre+Barcode+39+Text&display=swap');
+  <meta charset="UTF-8" />
+  <title>Music Camera - Original UI with Vibe Lo-Fi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
-    * {
-      box-sizing: border-box;
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Libre+Barcode+39+Text&family=Noto+Serif+TC:wght@500&display=swap');
+    * { box-sizing: border-box; }
+
+    /* =========================
+       新外觀：參考你提供的截圖
+       只改 UI / CSS，不動 JS
+    ========================== */
+
+    :root{
+      --bg: #e9e9e9;
+
+      --metal1:#eef0f2;
+      --metal2:#d6dade;
+      --metal3:#b8bfc6;
+
+      --metalEdge:#9aa3ab;
+
+      --leather1:#b17f55;
+      --leather2:#8e6441;
+      --stitch:#d4b184;
+
+      --panelOuter:#0d0f12;
+      --panelInner:#0a0b0d;
+      --panelGlow: rgba(255,255,255,.06);
+
+      --ink:#e9ecef;
+      --muted: rgba(233,236,239,.65);
+
+      --shadow: rgba(0,0,0,.35);
     }
 
     body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      background: radial-gradient(circle at top, #fdf6e3 0, #f3e6c7 40%, #e2c69f 100%);
-      font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      color: #3b2b28;
+      margin: 0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 18px;
+      background: radial-gradient(circle at 50% 10%, #ffffff 0, #f1f1f1 35%, #d9d9d9 100%);
+      font-family: 'DM Sans', 'Noto Serif TC', sans-serif;
+      color: #111827;
     }
 
-    .app-wrapper {
-      max-width: 420px;
-      width: 100%;
+    .app-wrapper{
+      width: min(520px, 92vw);
     }
 
-    .app-title {
-      text-align: center;
-      margin-bottom: 12px;
-    }
+    .app-title{ display:none; } /* 截圖沒有獨立標題，隱藏 */
 
-    .app-title h1 {
-      font-size: 22px;
-      margin: 0;
-      letter-spacing: 0.03em;
-    }
-
-    .app-title span {
-      font-size: 12px;
-      color: #8b6f5a;
-    }
-
-    /* 拍立得相機本體 */
-    .camera-body {
+    /* 相機外殼：直式、圓角、金屬感 */
+    .camera-body{
       position: relative;
-      background: linear-gradient(180deg, #f3ede4 0%, #efe5d6 45%, #f7f0df 100%);
-      border-radius: 24px;
-      padding: 16px 16px 24px;
-      box-shadow:
-        0 16px 30px rgba(87, 60, 35, .35),
-        0 2px 0 #d1b79b;
-      border: 1px solid #e0cfb8;
+      border-radius: 26px;
+      padding: 0;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--metal1) 0%, var(--metal2) 55%, var(--metal3) 100%);
+      border: 1px solid rgba(0,0,0,.18);
+      box-shadow: 0 26px 55px rgba(0,0,0,.28);
     }
 
-    .camera-top-strip {
-      position: absolute;
-      top: 10px;
-      left: 12px;
-      right: 12px;
-      height: 12px;
-      background: linear-gradient(90deg, #e0b35c, #e4915f, #e27874);
-      border-radius: 999px;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.4);
+    /* 頂部皮革橫條（含車線、壓紋） */
+    .camera-top-strip{
+      position: relative;
+      height: 92px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.10)),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0, rgba(255,255,255,.06) 2px, rgba(0,0,0,.02) 2px, rgba(0,0,0,.02) 10px),
+        linear-gradient(180deg, var(--leather1), var(--leather2));
+      border-bottom: 1px solid rgba(0,0,0,.18);
+    }
+    .camera-top-strip:before{
+      content:"";
+      position:absolute;
+      left:18px; right:18px; top:18px; bottom:18px;
+      border-radius: 14px;
+      border: 2px solid rgba(255,255,255,.20);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
+      opacity:.9;
+    }
+    .camera-top-strip:after{
+      content:"";
+      position:absolute;
+      left:30px; right:30px; top:30px; bottom:30px;
+      border-radius: 12px;
+      border: 1px dashed rgba(212,177,132,.85);
+      opacity:.9;
     }
 
-    .camera-header {
-      display: flex;
+    /* 上方品牌列（紅燈+文字+右側小件） */
+    .camera-header{
+      display:flex;
+      align-items:center;
       justify-content: space-between;
-      align-items: center;
-      margin-top: 16px;
-      margin-bottom: 12px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid rgba(0,0,0,.12);
+      background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.10));
     }
 
-    .camera-brand {
-      font-size: 14px;
-      letter-spacing: 0.12em;
+    .camera-viewfinder{ /* 改成左邊紅燈 */
+      width:22px; height:22px; border-radius:999px;
+      background: radial-gradient(circle at 30% 20%, #ffb8ad, #d14a3c);
+      border: 2px solid rgba(0,0,0,.25);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+      flex: 0 0 auto;
+    }
+
+    .camera-brand{
+      flex: 1;
+      padding-left: 12px;
+      font-weight: 800;
+      letter-spacing: .22em;
       text-transform: uppercase;
-      color: #7b5b4d;
+      font-size: 18px;
+      color: rgba(0,0,0,.62);
+      user-select:none;
     }
 
-    .camera-lens {
-      position: relative;
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 20%, #ffffff 0, #c8c5c3 35%, #7e7b78 60%, #2b2927 100%);
-      box-shadow:
-        0 4px 8px rgba(0,0,0,.35),
-        inset 0 0 0 3px rgba(255,255,255,.5);
-    }
-
-    .camera-lens::before {
-      content: '';
-      position: absolute;
-      inset: 30%;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), rgba(0,0,0,.3));
-      opacity: 0.85;
-    }
-
-    .camera-lens::after {
-      content: '';
-      position: absolute;
-      top: 12px;
-      left: 16px;
-      width: 12px;
-      height: 8px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.7);
-      filter: blur(1px);
-    }
-
-    .camera-viewfinder {
-      width: 42px;
+    /* 右側的小方塊+閃燈 */
+    .camera-lens{
+      width: 86px;
       height: 24px;
-      border-radius: 6px;
-      border: 2px solid #b69983;
-      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.7), #36302b);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
-    }
-
-    .camera-main {
-      margin-top: 10px;
-      display: grid;
-      grid-template-columns: 1.4fr 1fr;
-      gap: 12px;
-    }
-
-    /* 拍照區 = 拍立得底片出口 */
-    .photo-slot {
-      background: #18181b;
-      border-radius: 16px;
-      padding: 8px;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
-      position: relative;
-      overflow: hidden;
-      min-height: 230px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-    }
-
-    /* 拍立得底片本體 + 出片動畫 */
-    .polaroid-frame {
-      position: absolute;
-      left: 50%;
-      transform: translate(-50%, 130%) rotate(-4deg);
-      background: #fdfdf9;
       border-radius: 8px;
-      padding: 10px 10px 26px;
-      box-shadow:
-        0 5px 10px rgba(0,0,0,.35),
-        0 0 0 1px rgba(0,0,0,.08);
-      opacity: 0;
+      background: transparent;
+      box-shadow: none;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:12px;
+    }
+    .camera-lens:before{
+      content:"";
+      width:14px; height:14px;
+      border-radius: 3px;
+      background: #d6dde4;
+      border: 2px solid rgba(0,0,0,.22);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+      opacity:.9;
+    }
+    .camera-lens:after{
+      content:"";
+      width:46px; height:22px;
+      border-radius: 8px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0, rgba(255,255,255,.55) 2px, rgba(255,255,255,.22) 2px, rgba(255,255,255,.22) 5px),
+        linear-gradient(180deg, rgba(255,255,255,.65), rgba(0,0,0,.12));
+      border: 1px solid rgba(0,0,0,.22);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
     }
 
-    .polaroid-frame.eject {
-      animation: ejectFilm 0.9s ease-out forwards;
-    }
-
-    @keyframes ejectFilm {
-      0% {
-        transform: translate(-50%, 130%) rotate(-4deg);
-        opacity: 0;
-      }
-      40% {
-        opacity: 1;
-      }
-      100% {
-        transform: translate(-50%, 0%) rotate(-2deg);
-        opacity: 1;
-      }
-    }
-
-    .polaroid-inner {
-      width: 220px;
-      max-width: 100%;
-      max-height: 220px;
-      background: #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    #preview {
-      max-width: 100%;
-      max-height: 100%;
-      display: block;
-    }
-
-    .polaroid-caption {
-      margin-top: 6px;
-      text-align: center;
-      font-size: 11px;
-      color: #6b7280;
-      font-family: 'Libre Barcode 39 Text', system-ui;
-      letter-spacing: .15em;
-    }
-
-    /* 控制面板（不顯示數值，只顯示狀態文字） */
-    .control-panel {
-      padding: 8px;
-      border-radius: 16px;
-      background: #f4ecde;
-      border: 1px solid #e0cfb8;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.5);
-      display: flex;
+    /* 主體改成直式堆疊 */
+    .camera-main{
+      display:flex;
       flex-direction: column;
-      justify-content: space-between;
-      gap: 8px;
+      gap: 18px;
+      padding: 18px;
     }
 
-    .knob-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
+    /* 黑色操作面板（含按鈕與詩句） */
+    .control-panel{
+      border-radius: 20px;
+      padding: 16px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,.08), transparent 55%),
+        linear-gradient(180deg, #15181d, #0b0c0f);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 10px 18px rgba(0,0,0,.22), inset 0 0 0 1px rgba(0,0,0,.45);
+      color: var(--ink);
     }
 
-    .shutter-button {
+    .control-panel > div:first-child{
+      display:flex;
+      gap: 14px;
+      align-items:center;
+    }
+
+    /* 大白色 SHOOT / LOAD */
+    .shutter-button{
       flex: 1;
-      padding: 8px 12px;
+      padding: 18px 18px;
       border-radius: 999px;
       border: none;
       cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      background: radial-gradient(circle at 30% 20%, #fff7ed, #f97316);
-      color: #3b1f0b;
-      box-shadow:
-        0 4px 0 #b45309,
-        0 10px 16px rgba(0,0,0,.35);
+      background: linear-gradient(180deg, #f7f7f7, #dcdcdc);
+      color: #111827;
+      font-weight: 900;
+      font-size: 34px;
+      letter-spacing: .12em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      box-shadow: 0 10px 20px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.6);
     }
+    .shutter-button:active{ transform: translateY(1px); }
 
-    .shutter-button:active {
-      transform: translateY(2px);
-      box-shadow:
-        0 2px 0 #92400e,
-        0 4px 8px rgba(0,0,0,.3);
-    }
-
-    .indicator-light {
-      width: 20px;
-      height: 20px;
+    /* 右側小圓燈（灰色） */
+    .indicator-light{
+      width: 26px;
+      height: 26px;
       border-radius: 999px;
-      background: radial-gradient(circle at 30% 20%, #fef9c3, #f59e0b);
-      border: 2px solid #78350f;
-      box-shadow: 0 0 8px rgba(250,204,21,.7);
+      background: radial-gradient(circle at 30% 20%, #9aa3ab, #444b52);
+      border: 2px solid rgba(255,255,255,.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+      flex: 0 0 auto;
+    }
+    .indicator-light.off{
+      background: radial-gradient(circle at 30% 20%, #7b828a, #343a40);
+      opacity: .85;
     }
 
-    .indicator-light.off {
-      background: radial-gradient(circle at 30% 20%, #e5e7eb, #9ca3af);
-      border-color: #6b7280;
-      box-shadow: none;
-    }
-
-    .tiny {
-      font-size: 11px;
-      color: #7b5b4d;
-      margin-top: 6px;
-      line-height: 1.5;
-    }
-
-    /* 底部出片口 + 說明 */
-    .camera-footer {
+    /* Play/Stop 大按鈕 */
+    .sub-buttons{
+      display:flex;
+      gap: 16px;
       margin-top: 14px;
-      padding-top: 10px;
-      border-top: 1px dashed rgba(107, 114, 128, .5);
     }
-
-    .footer-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: #7c6b5a;
-    }
-
-    .footer-row span.title {
-      font-weight: 600;
-      letter-spacing: .08em;
+    .sub-btn{
+      flex:1;
+      padding: 18px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,.10), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25));
+      color: rgba(233,236,239,.55);
+      font-weight: 900;
+      font-size: 30px;
+      letter-spacing: .14em;
       text-transform: uppercase;
+      cursor:pointer;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.55);
     }
-
-    .footer-row small {
-      font-size: 10px;
-      color: #9b7356;
-    }
-
-    .film-slot {
-      margin-top: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: linear-gradient(180deg,#111827,#020617);
-      box-shadow:
-        inset 0 0 0 1px rgba(148, 163, 184, .6),
-        0 4px 8px rgba(15, 23, 42, .6);
-    }
-
-    /* 隱藏的 canvas */
-    #canvas {
-      display: none;
-    }
-
-    /* 次要按鈕樣式 */
-    .sub-buttons {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
-      flex-wrap: wrap;
-    }
-
-    .sub-btn {
-      flex: 1;
-      min-width: 90px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 500;
-      background: #d1c0aa;
-      color: #3b2b28;
-      box-shadow: 0 2px 0 #b39b7f;
-    }
-
-    .sub-btn:disabled {
+    .sub-btn:disabled{
       opacity: .35;
-      box-shadow: none;
       cursor: not-allowed;
     }
 
-    @media (max-width: 480px) {
-      .camera-main {
-        grid-template-columns: 1fr;
-      }
-      .polaroid-frame {
-        transform: translate(-50%, 130%) rotate(-3deg);
-      }
+    /* 面板分隔線（虛線） */
+    .tiny{
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px dashed rgba(233,236,239,.22);
+      font-family: 'Noto Serif TC', serif;
+      font-style: normal;
+      font-size: 22px;
+      line-height: 1.6;
+      color: rgba(233,236,239,.92);
+      letter-spacing: .02em;
     }
+
+    /* barcode 置中 */
+    .camera-footer{
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 0;
+    }
+    .footer-row{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap: 10px;
+      color: transparent; /* 截圖沒有這行字，隱藏 */
+      height: 0;
+      overflow:hidden;
+    }
+
+    .polaroid-caption{
+      text-align:center;
+      margin-top: 12px;
+      font-family: 'Libre Barcode 39 Text';
+      font-size: 44px;
+      letter-spacing: .08em;
+      color: rgba(233,236,239,.70);
+      line-height: 1;
+    }
+
+    /* 下方出片艙：大灰色區塊 + 底部長條槽 */
+    .photo-slot{
+      position: relative;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(0,0,0,.10), rgba(255,255,255,.06));
+      border: 1px solid rgba(0,0,0,.20);
+      padding: 16px;
+      min-height: 360px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+
+    /* 內層灰色面板 */
+    .photo-slot:before{
+      content:"";
+      position:absolute;
+      inset: 14px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #c3c8cd, #9fa6ad);
+      border: 1px solid rgba(0,0,0,.15);
+      box-shadow: inset 0 10px 30px rgba(0,0,0,.12);
+    }
+
+    /* 底部出片槽 */
+    .film-slot{
+      position:absolute;
+      left: 30px;
+      right: 30px;
+      bottom: 26px;
+      height: 18px;
+      border-radius: 999px;
+      background: #0b0c0e;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,.75);
+      border: 1px solid rgba(255,255,255,.06);
+      z-index: 6;
+      margin-top: 0;
+    }
+
+    /* Polaroid 片：從底部槽「吐出」 */
+    .polaroid-frame{
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      transform: translate(-50%, 140%);
+      width: 280px;
+      max-width: 84%;
+      background: #fdfdf9;
+      border-radius: 10px;
+      padding: 12px 12px 34px;
+      box-shadow: 0 18px 30px rgba(0,0,0,.35);
+      opacity: 0;
+      z-index: 5;
+      --developDur: 2.5s;
+    }
+
+    .polaroid-frame.eject { animation: ejectFilm 0.9s ease-out forwards; }
+    @keyframes ejectFilm {
+      0%   { transform: translate(-50%, 140%); opacity: 0; }
+      100% { transform: translate(-50%, 18%);  opacity: 1; }
+    }
+
+    .polaroid-inner{
+      width: 100%;
+      aspect-ratio: 1;
+      background: #e5e7eb; /* ✅ 保留原本 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+      border-radius: 8px;
+    }
+
+    /* 保留顯影效果（不動） */
+    .film-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+    .grain { position: absolute; width: 100%; height: 100%; background-image: url("https://www.transparenttextures.com/patterns/stardust.png"); opacity: 0.2; mix-blend-mode: overlay; }
+    .light-leak { position: absolute; width: 100%; height: 100%; background: radial-gradient(circle at 0% 50%, rgba(255, 80, 0, 0.4) 0%, transparent 60%), radial-gradient(circle at 100% 10%, rgba(255, 150, 50, 0.2) 0%, transparent 50%); mix-blend-mode: screen; filter: blur(10px); }
+
+    /* ====== ✅ 唯一修改點：照片完整呈現（不裁切） ====== */
+    #preview {
+      width: 100%;
+      height: 100%;
+
+      /* 原本是 cover 會裁切，改成 contain 讓整張照片完整顯示 */
+      object-fit: contain;
+
+      /* 留白時給一個深色底，避免像破圖 */
+      background: #0b0c0f;
+
+      opacity: 0;
+      filter: brightness(0.05) contrast(0.6) saturate(0.1);
+      transition: opacity var(--developDur) linear, filter var(--developDur) linear;
+    }
+    #preview.develop { opacity: 1; filter: sepia(0.3) contrast(1.2) brightness(1.05) saturate(1.1); }
+    /* ====== ✅ 修改點到此結束 ====== */
+
+    /* 你原本的 camera overlay（拍照/相簿）保留不動 */
+    #cameraOverlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
+    }
+    #videoPreview { width: 100%; max-width: 420px; aspect-ratio: 1; object-fit: cover; }
+    .camera-controls { margin-top: 30px; display: flex; gap: 30px; align-items: center; }
+    .snap-btn { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 6px solid #444; }
+    .overlay-close { position: absolute; top: 20px; right: 20px; color: #fff; font-size: 30px; background: none; border: none; }
+    .album-btn { background: #444; color: #fff; border: none; padding: 10px 20px; border-radius: 20px; }
+
+    #canvas { display: none; }
   </style>
 </head>
+
 <body>
   <div class="app-wrapper">
-    <div class="app-title">
-      <h1>拍立得 Lofi 相機實驗室</h1>
-      <span>Photo → Mood → Music → Haiku</span>
-    </div>
+    <div class="app-title"><h1>Music Camera 聽見風景</h1></div>
 
     <div class="camera-body">
       <div class="camera-top-strip"></div>
 
       <div class="camera-header">
         <div class="camera-viewfinder"></div>
-        <div class="camera-brand">CATNIP POLA-LOFI</div>
+        <div class="camera-brand">MUSIC CAMERA</div>
         <div class="camera-lens"></div>
       </div>
 
       <div class="camera-main">
-        <!-- 左側：拍立得照片 + 出片動畫 -->
+        <!-- 黑色操作面板 -->
+        <div class="control-panel">
+          <div>
+            <button id="openCamBtn" class="shutter-button">SHOOT / LOAD</button>
+            <div id="indicator" class="indicator-light off"></div>
+          </div>
+
+          <div class="sub-buttons">
+            <button id="playBtn" class="sub-btn" disabled>PLAY</button>
+            <button id="stopBtn" class="sub-btn" disabled>STOP</button>
+          </div>
+
+          <div class="tiny" id="analysisText">每一個當下都是一段獨一無二的旋律</div>
+
+          <!-- 截圖中的條碼字樣（captionText 的 id 必須保留，JS 會寫入） -->
+          <div class="camera-footer">
+            <div class="footer-row"><span>視覺數據轉化為專屬情緒旋律</span></div>
+            <div class="polaroid-caption" id="captionText">LO-FI_VIBE_READY</div>
+          </div>
+        </div>
+
+        <!-- 下方吐照片艙 -->
         <div class="photo-slot">
           <div class="polaroid-frame" id="polaroidFrame">
             <div class="polaroid-inner">
-              <img id="preview" alt="預覽圖片"/>
-            </div>
-            <div class="polaroid-caption">
-              LOFI SNAPSHOT
-            </div>
-          </div>
-        </div>
-
-        <!-- 右側：控制面板（抽象詩句顯示區） -->
-        <div class="control-panel">
-          <div>
-            <div class="knob-row">
-              <button id="fileSelectProxy" class="shutter-button">LOAD / SHOOT</button>
-              <div id="indicator" class="indicator-light off"></div>
-            </div>
-            <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none;">
-            <div class="tiny" id="analysisText">
-              載入或拍一張照片，拍立得就會吐出一段 Lofi 音樂與一首短短的俳句。
+              <div class="film-overlay"><div class="grain"></div><div class="light-leak"></div></div>
+              <img id="preview" alt="Snapshot"/>
             </div>
           </div>
 
-          <div>
-            <div class="sub-buttons">
-              <button id="initAudioBtn" class="sub-btn">啟動音樂引擎</button>
-              <button id="playBtn" class="sub-btn" disabled>播放 Lofi</button>
-              <button id="stopBtn" class="sub-btn" disabled>停止</button>
-            </div>
-          </div>
+          <!-- 底部出片槽（保留原 class 名稱 film-slot，JS 不用它） -->
+          <div class="film-slot"></div>
         </div>
       </div>
-
-      <div class="camera-footer">
-        <div class="footer-row">
-          <span class="title">INSTANT COLOR-SCORE</span>
-          <small>讓音樂紀錄每個時刻的心情。</small>
-        </div>
-        <div class="film-slot"></div>
-      </div>
-
-      <canvas id="canvas"></canvas>
     </div>
   </div>
 
-  <script>
-    // --------------- 照片 → 數值 ---------------
+  <div id="cameraOverlay">
+    <button class="overlay-close" id="closeOverlay">✕</button>
+    <video id="videoPreview" autoplay playsinline></video>
+    <div class="camera-controls">
+      <button class="album-btn" id="albumBtn">相簿</button>
+      <button class="snap-btn" id="snapBtn"></button>
+      <div style="width:60px;"></div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none;">
+  </div>
 
+  <canvas id="canvas"></canvas>
+  <audio id="shutterSfx" src="https://raw.githubusercontent.com/OOOOuOOOO/Musiccamera/assets/polaroid-shutter.mp3" preload="auto"></audio>
+
+  <script>
+    const openCamBtn = document.getElementById('openCamBtn');
+    const cameraOverlay = document.getElementById('cameraOverlay');
+    const videoPreview = document.getElementById('videoPreview');
+    const snapBtn = document.getElementById('snapBtn');
+    const albumBtn = document.getElementById('albumBtn');
     const fileInput = document.getElementById('fileInput');
-    const fileSelectProxy = document.getElementById('fileSelectProxy');
+    const closeOverlay = document.getElementById('closeOverlay');
     const preview = document.getElementById('preview');
-    const canvas = document.getElementById('canvas');
     const indicator = document.getElementById('indicator');
     const polaroidFrame = document.getElementById('polaroidFrame');
-
     const analysisText = document.getElementById('analysisText');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const shutterSfx = document.getElementById('shutterSfx');
+    const canvas = document.getElementById('canvas');
 
-    let currentFeatures = null; // {brightness, saturation, hue, bpm, keyCenter, density}
+    let stream = null;
+    let audioInited = false;
+    let currentFeatures = null;
+    let synths = {};
 
-    fileSelectProxy.addEventListener('click', () => fileInput.click());
-
+    // --- 相機控制 (維持原設定) ---
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        videoPreview.srcObject = stream;
+        cameraOverlay.style.display = 'flex';
+      } catch (e) { fileInput.click(); }
+    }
+    function stopCamera() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      cameraOverlay.style.display = 'none';
+    }
+    openCamBtn.addEventListener('click', startCamera);
+    closeOverlay.addEventListener('click', stopCamera);
+    albumBtn.addEventListener('click', () => fileInput.click());
+    snapBtn.addEventListener('click', () => {
+      const ctx = canvas.getContext('2d');
+      canvas.width = videoPreview.videoWidth;
+      canvas.height = videoPreview.videoHeight;
+      ctx.drawImage(videoPreview, 0, 0);
+      preview.src = canvas.toDataURL('image/jpeg');
+      stopCamera();
+      analyzePhoto();
+    });
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        preview.src = ev.target.result;
-        preview.onload = () => analyze(preview);
-      };
+      reader.onload = (ev) => { preview.src = ev.target.result; stopCamera(); analyzePhoto(); };
       reader.readAsDataURL(file);
     });
 
-    function analyze(img) {
-      const maxWidth = 400;
-      const scale = Math.min(1, maxWidth / img.naturalWidth);
-      const w = img.naturalWidth * scale;
-      const h = img.naturalHeight * scale;
+    // --- 照片分析與感應 (核心音樂情境變量) ---
+    function analyzePhoto() {
+      preview.onload = () => {
+        const ctx = canvas.getContext('2d');
+        canvas.width = 10; canvas.height = 10;
+        ctx.drawImage(preview, 0, 0, 10, 10);
+        const data = ctx.getImageData(0, 0, 10, 10).data;
+        let r=0, g=0, b=0, bri=0;
+        for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
 
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
+        const avgR = r/100, avgB = b/100, avgBri = bri/100;
 
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const data = imageData.data;
+        // 生成根據照片變化的音樂參數
+        currentFeatures = {
+          mode: avgBri > 125 ? 'Major' : 'Minor', // 亮：大調(溫暖) / 暗：小調(沈靜)
+          vibe: avgR > avgB ? 'Warm' : 'Cool',    // 色溫決定配器比例
+          bpm: 86 + Math.floor((avgBri/255) * 12), // 亮度決定節奏速度
+          seed: r + g + b
+        };
 
-      let totalL = 0;
-      let totalS = 0;
-      let totalHueX = 0;
-      let totalHueY = 0;
-      let count = 0;
+        indicator.classList.remove('off');
+        analysisText.innerHTML = `Vibe: ${currentFeatures.mode} & ${currentFeatures.vibe}<br>16-Bar Lo-Fi Ready`;
+        document.getElementById('captionText').innerText = `DATA_${currentFeatures.mode}_${currentFeatures.vibe}`;
 
-      for (let i = 0; i < data.length; i += 4 * 4) {
-        const r = data[i] / 255;
-        const g = data[i+1] / 255;
-        const b = data[i+2] / 255;
-
-        const L = (r + g + b) / 3;
-
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        const delta = max - min;
-        let h = 0;
-        let s = 0;
-        const l = (max + min) / 2;
-
-        if (delta !== 0) {
-          s = delta / (1 - Math.abs(2*l - 1));
-          if (max === r) {
-            h = 60 * (((g - b) / delta) % 6);
-          } else if (max === g) {
-            h = 60 * (((b - r) / delta) + 2);
-          } else {
-            h = 60 * (((r - g) / delta) + 4);
-          }
-        }
-        if (h < 0) h += 360;
-
-        totalL += L;
-        totalS += s;
-        const rad = h * Math.PI / 180;
-        totalHueX += Math.cos(rad);
-        totalHueY += Math.sin(rad);
-        count++;
-      }
-
-      const avgL = totalL / count;      // 0~1
-      const avgS = totalS / count;      // 0~1
-      const avgHueRad = Math.atan2(totalHueY / count, totalHueX / count);
-      let avgHue = avgHueRad * 180 / Math.PI;
-      if (avgHue < 0) avgHue += 360;
-
-      const L100 = avgL * 100;
-      const S100 = avgS * 100;
-
-      const mapping = mapFeaturesToMusic(L100, S100, avgHue);
-      currentFeatures = {
-        brightness: L100,
-        saturation: S100,
-        hue: avgHue,
-        ...mapping
+        triggerEject();
       };
-
-      indicator.classList.remove('off');
-      runFilmEjectAnimation();
-      updateAnalysisText(currentFeatures);
     }
 
-    // 抽象俳句產生器（不提顏色、不提具象場景）
-    function updateAnalysisText(f) {
-      if (!f) {
-        analysisText.textContent = "載入或拍一張照片，拍立得就會吐出一段 Lofi 音樂與一首短短的俳句。";
-        return;
-      }
-
-      const A = [
-        "靜靜升起",
-        "緩緩沉下",
-        "無聲散開",
-        "心事未說",
-        "輕念飄動",
-        "柔意回旋"
-      ];
-
-      const B = [
-        "時間變慢",
-        "呼吸放鬆",
-        "節奏鬆開",
-        "片刻拉長",
-        "世界變輕",
-        "思緒解開"
-      ];
-
-      const C = [
-        "落在內層深處",
-        "像未完成的句子",
-        "一切尚未命名",
-        "保持著溫柔",
-        "無需去往何處",
-        "在靜處延伸"
-      ];
-
-      // brightness 決定 A 的索引（由亮到暗的心情）
-      const aIndex = Math.min(
-        A.length - 1,
-        Math.floor((f.brightness / 100) * A.length)
-      );
-
-      // density 決定 B 的索引（節奏鬆緊）
-      let bIndexBase = 0;
-      if (f.density === "mid") bIndexBase = 2;
-      else if (f.density === "high") bIndexBase = 4;
-      const bIndex = Math.min(B.length - 1, bIndexBase);
-
-      // hue 只是用來做「變化來源」，不直接描述顏色
-      const cIndex = Math.floor((f.hue / 360) * C.length) % C.length;
-
-      const line1 = A[aIndex];
-      const line2 = B[bIndex];
-      const line3 = C[cIndex];
-
-      analysisText.innerHTML = `
-        ${line1}<br>
-        ${line2}<br>
-        ${line3}
-      `;
+    function triggerEject() {
+      polaroidFrame.classList.remove('eject'); void polaroidFrame.offsetWidth; polaroidFrame.classList.add('eject');
+      preview.classList.remove('develop');
+      shutterSfx.currentTime = 0; shutterSfx.play();
+      setTimeout(() => preview.classList.add('develop'), 50);
+      shutterSfx.onended = () => { playBtn.disabled = false; };
     }
 
-    function mapFeaturesToMusic(brightness, saturation, hue) {
-      const baseBpm = 60;
-      const extra = (brightness / 100) * 30;
-      const bpm = Math.round(baseBpm + extra);
-
-      let keyCenter = "A3";
-      if (hue < 30 || hue >= 330) keyCenter = "A3";
-      else if (hue < 90)         keyCenter = "D3";
-      else if (hue < 150)        keyCenter = "E3";
-      else if (hue < 210)        keyCenter = "F#3";
-      else if (hue < 270)        keyCenter = "G3";
-      else                       keyCenter = "C3";
-
-      const energy = (brightness + saturation) / 2;
-      let density = "low";
-      if (energy > 70) density = "high";
-      else if (energy > 45) density = "mid";
-
-      return { bpm, keyCenter, density };
-    }
-
-    // 出片動畫 + 拍立得聲音
-    function runFilmEjectAnimation() {
-      polaroidFrame.classList.remove('eject');
-      // 強制重排讓動畫可以重新播放
-      void polaroidFrame.offsetWidth;
-      polaroidFrame.classList.add('eject');
-      playShutterSound();
-    }
-
-    // --------------- Tone.js Lofi 音樂引擎 & 拍立得聲音 ---------------
-
-    const initAudioBtn = document.getElementById('initAudioBtn');
-    const playBtn = document.getElementById('playBtn');
-    const stopBtn = document.getElementById('stopBtn');
-
-    let audioInited = false;
-    let chordSynth, leadSynth, kick, snare, hihat, reverb, filter, sidechainComp;
-    let shutterSynth, shutterNoise;
-    let chordPart, leadPart, kickPart, snarePart, hatPart;
-
-    initAudioBtn.addEventListener('click', async () => {
+    // --- 音樂引擎 (Lo-Fi 重構版) ---
+    async function initAudio() {
+      if (audioInited) return;
       await Tone.start();
-      if (!audioInited) {
-        setupToneGraph();
-        audioInited = true;
-      }
-      initAudioBtn.textContent = "引擎已啟動";
-      initAudioBtn.disabled = true;
-      playBtn.disabled = false;
-      stopBtn.disabled = false;
-    });
+      const filter = new Tone.Filter(1300, "lowpass").toDestination();
+      const reverb = new Tone.Reverb({ decay: 6, wet: 0.35 }).connect(filter);
 
-    playBtn.addEventListener('click', () => {
-      if (!currentFeatures) {
-        alert("請先載入或拍攝一張照片，讓相機分析並吐出底片！");
-        return;
+      // 電鋼琴 (主要旋律)
+      synths.piano = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.1, release: 2 },
+        volume: -5
+      }).connect(reverb);
+
+      // 療癒吉他
+      synths.guitar = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.05, decay: 0.3, release: 1 },
+        volume: -10
+      }).connect(reverb);
+
+      // Lo-Fi 鼓組
+      synths.kick = new Tone.MembraneSynth({ volume: -14 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -26 }).connect(filter);
+      synths.hihat = new Tone.MetalSynth({ volume: -32, envelope: { decay: 0.05 } }).connect(filter);
+
+      audioInited = true;
+    }
+
+    playBtn.addEventListener('click', async () => {
+      await initAudio();
+      Tone.Transport.stop(); Tone.Transport.cancel();
+
+      const f = currentFeatures;
+      Tone.Transport.bpm.value = f.bpm;
+
+      // 根據照片性質選擇音階庫
+      const scale = f.mode === 'Major'
+        ? ["C4", "E4", "G4", "A4", "B4", "D5"]
+        : ["A3", "C4", "D4", "E4", "G4", "A4"];
+
+      const sequence = [];
+      for (let bar = 0; bar < 16; bar++) {
+        // 標準 Lo-Fi 節拍 (1,3 拍大鼓; 2,4 拍小鼓)
+        sequence.push({ time: `${bar}:0:0`, type: "kick" });
+        sequence.push({ time: `${bar}:1:0`, type: "snare" });
+        sequence.push({ time: `${bar}:2:0`, type: "kick" });
+        sequence.push({ time: `${bar}:3:0`, type: "snare" });
+        for (let i = 0; i < 8; i++) sequence.push({ time: `${bar}:0:${i*2}`, type: "hihat" });
+
+        // 根據 Vibe (暖/冷) 分配旋律角色
+        if (f.vibe === 'Warm') {
+          // 暖色調：吉他為主，彈奏切分音
+          sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[bar % scale.length] });
+          sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(bar+2) % scale.length] });
+          if(bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
+        } else {
+          // 冷色調：鋼琴為主，彈奏厚重長音
+          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2], scale[4]] });
+          if(bar % 4 === 2) sequence.push({ time: `${bar}:2:0`, type: "piano", notes: [scale[1], scale[3]] });
+          sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[5] });
+        }
       }
-      startMusic(currentFeatures);
+
+      new Tone.Part((time, v) => {
+        if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
+        if (v.type === "snare") synths.snare.triggerAttack(time);
+        if (v.type === "hihat") synths.hihat.triggerAttackRelease("C4", "32n", time, 0.3);
+        if (v.type === "piano") synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.5);
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "4n", time, 0.6);
+      }, sequence).start(0);
+
+      Tone.Transport.loop = true;
+      Tone.Transport.loopEnd = "16m";
+      Tone.Transport.start("+0.1");
+
+      stopBtn.disabled = false;
+      playBtn.disabled = true;
     });
 
     stopBtn.addEventListener('click', () => {
       Tone.Transport.stop();
+      playBtn.disabled = false;
+      stopBtn.disabled = true;
     });
-
-    function setupToneGraph() {
-      filter = new Tone.Filter(800, "lowpass", -12);
-      reverb = new Tone.Reverb({
-        decay: 4,
-        wet: 0.3
-      }).toDestination();
-
-      sidechainComp = new Tone.Compressor({
-        threshold: -24,
-        ratio: 3,
-        attack: 0.01,
-        release: 0.3
-      }).connect(reverb);
-
-      chordSynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.05, decay: 0.2, sustain: 0.5, release: 1.5 }
-      }).connect(filter);
-
-      leadSynth = new Tone.Synth({
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.8 }
-      }).connect(filter);
-
-      filter.connect(sidechainComp);
-
-      kick = new Tone.MembraneSynth({
-        pitchDecay: 0.02,
-        octaves: 4,
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.001, decay: 0.3, sustain: 0.0, release: 0.3 }
-      }).connect(reverb);
-
-      snare = new Tone.NoiseSynth({
-        noise: { type: "pink" },
-        envelope: { attack: 0.001, decay: 0.25, sustain: 0 }
-      }).connect(reverb);
-
-      hihat = new Tone.NoiseSynth({
-        noise: { type: "white" },
-        envelope: { attack: 0.001, decay: 0.08, sustain: 0 }
-      }).connect(reverb);
-
-      // 拍立得「卡嚓＋機器運轉」聲
-      shutterSynth = new Tone.MembraneSynth({
-        pitchDecay: 0.04,
-        octaves: 6,
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.001, decay: 0.18, sustain: 0.0, release: 0.2 }
-      }).connect(reverb);
-
-      shutterNoise = new Tone.NoiseSynth({
-        noise: { type: "white" },
-        envelope: { attack: 0.005, decay: 0.25, sustain: 0.0, release: 0.1 }
-      }).connect(reverb);
-
-      Tone.Destination.volume.value = -8;
-    }
-
-    function playShutterSound() {
-      if (!audioInited) return; // 還沒啟動音訊時就靜默，不強制
-      const now = Tone.now();
-      // 機械快門「卡嚓」
-      shutterSynth.triggerAttackRelease("C3", "16n", now);
-      // 短暫的機器運轉感
-      shutterNoise.triggerAttackRelease("8n", now + 0.03);
-    }
-
-    function getMinor7Chord(rootNote) {
-      const root = Tone.Frequency(rootNote);
-      const minor3rd = root.transpose(3);
-      const fifth = root.transpose(7);
-      const minor7th = root.transpose(10);
-      return [root, minor3rd, fifth, minor7th].map(f => f.toNote());
-    }
-
-    function buildChordProgression(keyCenter) {
-      const root = Tone.Frequency(keyCenter);
-      const iv = root.transpose(5);
-      const bVII = root.transpose(10);
-      const progRoots = [root, iv, bVII, root];
-      return progRoots.map(f => getMinor7Chord(f.toNote()));
-    }
-
-    function buildLeadNotes(keyCenter, brightness) {
-      const base = Tone.Frequency(keyCenter).transpose(brightness > 55 ? 12 : 5);
-      const scaleIntervals = [0, 2, 3, 5, 7, 10];
-      const pattern = [0, 2, 4, 1, 3, 5, 2, 0];
-      return pattern.map(i => base.transpose(scaleIntervals[i]).toNote());
-    }
-
-    function startMusic(features) {
-      if (chordPart) chordPart.dispose();
-      if (leadPart) leadPart.dispose();
-      if (kickPart) kickPart.dispose();
-      if (snarePart) snarePart.dispose();
-      if (hatPart) hatPart.dispose();
-
-      Tone.Transport.bpm.value = features.bpm;
-
-      const chords = buildChordProgression(features.keyCenter);
-      const leadNotes = buildLeadNotes(features.keyCenter, features.brightness);
-
-      chordPart = new Tone.Part((time, value) => {
-        chordSynth.triggerAttackRelease(value, "2n", time);
-      }, [
-        ["0:0", chords[0]],
-        ["0:2", chords[0]],
-        ["1:0", chords[1]],
-        ["1:2", chords[1]],
-        ["2:0", chords[2]],
-        ["2:2", chords[2]],
-        ["3:0", chords[3]],
-        ["3:2", chords[3]]
-      ]);
-      chordPart.loop = true;
-      chordPart.loopEnd = "4m";
-      chordPart.start(0);
-
-      leadPart = new Tone.Part((time, note) => {
-        leadSynth.triggerAttackRelease(note, "8n", time);
-      }, leadNotes.map((note, i) => [ `0:0:${i}`, note ]));
-      leadPart.loop = true;
-      leadPart.loopEnd = "2m";
-      leadPart.start("0:0:2");
-
-      const dense = features.density === "high";
-      const mid = features.density === "mid";
-
-      const kickEvents = [
-        "0:0", "0:2",
-        "1:0", "1:2",
-        "2:0", "2:2",
-        "3:0", "3:2"
-      ];
-      kickPart = new Tone.Part((time) => {
-        kick.triggerAttackRelease("C2", "8n", time);
-        sidechainComp.triggerAttackRelease(0.2, time);
-      }, kickEvents);
-
-      if (dense || mid) {
-        kickPart.add("1:3", null);
-        kickPart.add("3:3", null);
-      }
-
-      kickPart.loop = true;
-      kickPart.loopEnd = "4m";
-      kickPart.start(0);
-
-      snarePart = new Tone.Part((time) => {
-        snare.triggerAttackRelease("16n", time);
-      }, [
-        "0:2", "1:2", "2:2", "3:2"
-      ]);
-      snarePart.loop = true;
-      snarePart.loopEnd = "4m";
-      snarePart.start(0);
-
-      const hatEvents = [];
-      if (features.density === "low") {
-        ["0:0","0:2","1:0","1:2","2:0","2:2","3:0","3:2"].forEach(t => hatEvents.push(t));
-      } else if (features.density === "mid") {
-        for (let m=0; m<4; m++) {
-          ["0","1","2","3"].forEach(beat => {
-            hatEvents.push(`${m}:${beat}`);
-          });
-        }
-      } else {
-        for (let m=0; m<4; m++) {
-          ["0","0:2","1","1:2","2","2:2","3","3:2"].forEach(sub => {
-            hatEvents.push(`${m}:${sub}`);
-          });
-        }
-      }
-
-      hatPart = new Tone.Part((time) => {
-        hihat.triggerAttackRelease("8n", time, 0.4);
-      }, hatEvents);
-      hatPart.loop = true;
-      hatPart.loopEnd = "4m";
-      hatPart.start(0);
-
-      const volume = Tone.Destination.volume;
-      volume.rampTo(
-        Tone.gainToDb((features.brightness/100) * 0.5 + 0.3),
-        0.2
-      );
-
-      Tone.Transport.start("+0.1");
-    }
   </script>
 </body>
 </html>
