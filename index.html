@@ -209,28 +209,29 @@
     const filmDate = document.getElementById('filmDate');
     const shutterSfx = document.getElementById('shutterSfx');
     const canvas = document.getElementById('canvas');
-    
-    // 風格按鈕
     const lofiModeBtn = document.getElementById('lofiModeBtn');
     const jazzModeBtn = document.getElementById('jazzModeBtn');
 
-    let stream = null;
-    let audioInited = false;
-    let currentFeatures = null;
-    let synths = {};
-    let musicMode = 'lofi'; // 預設風格
+    let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
 
-    // 切換風格按鈕邏輯
-    lofiModeBtn.addEventListener('click', () => {
-      musicMode = 'lofi';
-      lofiModeBtn.classList.add('active');
-      jazzModeBtn.classList.remove('active');
-    });
-    jazzModeBtn.addEventListener('click', () => {
-      musicMode = 'jazz';
-      jazzModeBtn.classList.add('active');
-      lofiModeBtn.classList.remove('active');
-    });
+    // 12個語意標籤矩陣：定義音樂參數
+    const tagMatrix = {
+      'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.9, reverb: 0.2 },
+      'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -5, density: 0.4, reverb: 0.8 },
+      'Bright': { text: "捕捉光芒的瞬間", bpmAdd: 5, density: 0.7, reverb: 0.3 },
+      'Calm': { text: "呼吸間的寧靜", bpmAdd: -10, density: 0.3, reverb: 0.5 },
+      'Cozy': { text: "暖色調的午後", bpmAdd: -2, density: 0.5, reverb: 0.4 },
+      'Nostalgic': { text: "泛黃的舊時光", bpmAdd: -8, density: 0.4, reverb: 0.6 },
+      'Urban': { text: "都市霓虹的閃爍", bpmAdd: 10, density: 0.8, reverb: 0.3 },
+      'Tense': { text: "緊繃的視覺張力", bpmAdd: 12, density: 0.9, reverb: 0.4 },
+      'Mysterious': { text: "深邃神祕的暗影", bpmAdd: -4, density: 0.5, reverb: 0.7 },
+      'Melancholy': { text: "雨後的憂鬱藍調", bpmAdd: -12, density: 0.3, reverb: 0.7 },
+      'Lonely': { text: "看見一抹寂靜", bpmAdd: -15, density: 0.2, reverb: 0.9 },
+      'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.1, reverb: 0.8 }
+    };
+
+    lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
+    jazzModeBtn.addEventListener('click', () => { musicMode = 'jazz'; jazzModeBtn.classList.add('active'); lofiModeBtn.classList.remove('active'); });
 
     async function startCamera() {
       try {
@@ -239,18 +240,14 @@
         cameraOverlay.style.display = 'flex';
       } catch (e) { fileInput.click(); }
     }
-    function stopCamera() {
-      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-      cameraOverlay.style.display = 'none';
-    }
+    function stopCamera() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } cameraOverlay.style.display = 'none'; }
     openCamBtn.addEventListener('click', startCamera);
     closeOverlay.addEventListener('click', stopCamera);
     albumBtn.addEventListener('click', () => fileInput.click());
 
     snapBtn.addEventListener('click', () => {
       const ctx = canvas.getContext('2d');
-      canvas.width = videoPreview.videoWidth;
-      canvas.height = videoPreview.videoHeight;
+      canvas.width = videoPreview.videoWidth; canvas.height = videoPreview.videoHeight;
       ctx.drawImage(videoPreview, 0, 0);
       preview.src = canvas.toDataURL('image/jpeg');
       stopCamera();
@@ -274,141 +271,120 @@
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
-        // 核心修正：將 R, G, B 作為隨機種子的一部分，確保音樂獨一無二
+        // 模擬 AI 分析邏輯
+        const tags = Object.keys(tagMatrix);
+        let tagIndex = (r + g + b) % tags.length;
+        if (bri > 200) tagIndex = 2; // Bright
+        if (bri < 50) tagIndex = 8;  // Mysterious
+        if (b > r + 50) tagIndex = 9; // Melancholy
+        
+        const selectedTag = tags[tagIndex];
         currentFeatures = { 
+          tag: selectedTag,
+          tagInfo: tagMatrix[selectedTag],
           mode: (bri/100) > 125 ? 'Major' : 'Minor',
-          seed: (r + g + b), // 音樂隨機因子
-          bpm: 86 + Math.floor(((bri/100)/255) * 12)
+          seed: (r + g + b),
+          bpm: 90 + tagMatrix[selectedTag].bpmAdd
         };
 
-        analysisText.innerHTML = `讓音樂完整回憶`;
+        // 保留您的原始標語，並加上 AI 聯想
+        analysisText.innerHTML = `讓音樂完整回憶：${currentFeatures.tagInfo.text}`;
         triggerEject();
       };
     }
 
     function triggerEject() {
       const now = new Date();
-      const dateString = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-      filmDate.innerText = dateString;
+      filmDate.innerText = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
       filmDate.classList.remove('show');
       polaroidFrame.classList.remove('eject');
       void polaroidFrame.offsetWidth;
       polaroidFrame.classList.add('eject');
       preview.classList.remove('develop');
       shutterSfx.currentTime = 0; shutterSfx.play().catch(()=>{});
-      
-      setTimeout(() => {
-        preview.classList.add('develop');
-        filmDate.classList.add('show');
-      }, 100);
+      setTimeout(() => { preview.classList.add('develop'); filmDate.classList.add('show'); }, 100);
       playBtn.disabled = false;
     }
 
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
-
       const filter = new Tone.Filter(1200, "lowpass").toDestination();
-      const reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
-      const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
+      synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
+      const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
 
-      // 真實鋼琴
       synths.piano = new Tone.Sampler({
-        urls: { A1: "A1.mp3", A2: "A2.mp3", C4: "C4.mp3", A4: "A4.mp3" },
+        urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
-      }).connect(reverb);
-      synths.piano.volume.value = -6;
+      }).connect(synths.reverb);
 
-      // 物理建模吉他 (Lo-fi 專用)
       synths.guitar = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: "triangle" },
         envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
       }).connect(chorus);
-      synths.guitar.volume.value = -12; 
 
-      // 爵士貝斯 (Jazz 專用)
-      synths.bass = new Tone.MonoSynth({
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.1, decay: 0.4, sustain: 0.1, release: 0.5 }
-      }).toDestination();
-      synths.bass.volume.value = -10;
-      
+      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
       synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
       synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
-      
       audioInited = true;
     }
 
     playBtn.addEventListener('click', async () => {
       await initAudio();
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
+      Tone.Transport.stop(); Tone.Transport.cancel();
       
       const f = currentFeatures;
-      const seed = f.seed;
-      Tone.Transport.bpm.value = musicMode === 'jazz' ? 110 : f.bpm;
-      
-      // 獨一無二的音階選擇
+      const info = f.tagInfo;
+      Tone.Transport.bpm.value = f.bpm;
+      synths.reverb.wet.value = info.reverb; 
+
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
       const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
 
-      // 設定 Jazz 搖擺律動
       Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
-      Tone.Transport.swingSubdivision = "8n";
-
       const sequence = [];
-      // 循環拉長至 16 小節
+
       for (let bar = 0; bar < 16; bar++) {
-        // --- 基礎鼓組 ---
-        sequence.push({ time: `${bar}:0:0`, type: "kick" });
-        sequence.push({ time: `${bar}:2:0`, type: "kick" });
+        if (bar % 2 === 0 || info.density > 0.6) {
+          sequence.push({ time: `${bar}:0:0`, type: "kick" });
+          sequence.push({ time: `${bar}:2:0`, type: "kick" });
+        }
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
         if (musicMode === 'jazz') {
-          // --- Jazz 獨有邏輯 (Walking Bass + Swing Piano) ---
-          const bassNote = jazzScale[(seed + bar) % jazzScale.length].replace('4','2').replace('3','2');
-          sequence.push({ time: `${bar}:0:0`, type: "bass", note: bassNote });
-          sequence.push({ time: `${bar}:1:0`, type: "bass", note: jazzScale[(seed + bar + 1) % jazzScale.length].replace('4','2') });
-          sequence.push({ time: `${bar}:2:0`, type: "bass", note: jazzScale[(seed + bar + 2) % jazzScale.length].replace('4','2') });
-          sequence.push({ time: `${bar}:3:0`, type: "bass", note: jazzScale[(seed + bar + 3) % jazzScale.length].replace('4','2') });
-
-          if (bar % 2 === 0) {
-            sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
+          for (let beat = 0; beat < 4; beat++) {
+            if (Math.random() < info.density + 0.2) {
+              const note = jazzScale[(f.seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
+              sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
+            }
           }
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
         } else {
-          // --- Lo-fi 邏輯 (完全依照您的原始代碼) ---
-          if (bar % 2 === 0) {
-            sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
-          }
-          // 透過 seed 確保每張照片的吉他點綴不同
-          sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(seed + bar) % scale.length] });
-          sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(seed + bar + 2) % scale.length] });
-          sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(seed + bar + 1) % scale.length] });
-          sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[scale.length-1] });
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
+          const guitarDensity = info.density;
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(f.seed + bar) % scale.length] });
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(f.seed + bar + 3) % scale.length] });
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(f.seed + bar + 5) % scale.length] });
         }
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time);
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
         if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
         if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
       }, sequence).start(0);
 
-      Tone.Transport.loop = true;
-      Tone.Transport.loopEnd = "16m";
+      Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
-      stopBtn.disabled = false;
-      playBtn.disabled = true;
+      stopBtn.disabled = false; playBtn.disabled = true;
     });
     
-    stopBtn.addEventListener('click', () => {
-      Tone.Transport.stop();
-      playBtn.disabled = false;
-      stopBtn.disabled = true;
+    stopBtn.addEventListener('click', () => { Tone.Transport.stop(); playBtn.disabled = false; stopBtn.disabled = true; 
     });
+    
   </script>
 </body>
 </html>
