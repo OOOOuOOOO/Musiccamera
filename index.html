@@ -194,7 +194,6 @@
   <audio id="shutterSfx" src="polaroid-shutter.mp3"></audio>
 
   <script>
-    <script>
     const openCamBtn = document.getElementById('openCamBtn');
     const cameraOverlay = document.getElementById('cameraOverlay');
     const videoPreview = document.getElementById('videoPreview');
@@ -215,19 +214,20 @@
 
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
 
+    // 12個語意標籤矩陣：定義音樂參數
     const tagMatrix = {
-      'Energetic': { bpmAdd: 25, density: 0.9, reverb: 0.1, octave: 0, hasDrums: true },
-      'Dreamy': { bpmAdd: -10, density: 0.3, reverb: 0.9, octave: 1, hasDrums: false },
-      'Bright': { bpmAdd: 10, density: 0.6, reverb: 0.3, octave: 1, hasDrums: true },
-      'Calm': { bpmAdd: -15, density: 0.2, reverb: 0.6, octave: 0, hasDrums: false },
-      'Cozy': { bpmAdd: -5, density: 0.4, reverb: 0.4, octave: 0, hasDrums: true },
-      'Nostalgic': { bpmAdd: -12, density: 0.3, reverb: 0.7, octave: -1, hasDrums: false },
-      'Urban': { bpmAdd: 20, density: 0.8, reverb: 0.2, octave: 0, hasDrums: true },
-      'Tense': { bpmAdd: 15, density: 0.9, reverb: 0.5, octave: -1, hasDrums: true },
-      'Mysterious': { bpmAdd: -5, density: 0.3, reverb: 0.8, octave: -1, hasDrums: false },
-      'Melancholy': { bpmAdd: -20, density: 0.2, reverb: 0.7, octave: -1, hasDrums: false },
-      'Lonely': { bpmAdd: -25, density: 0.1, reverb: 0.9, octave: 0, hasDrums: false },
-      'Static': { bpmAdd: -30, density: 0.1, reverb: 0.8, octave: -1, hasDrums: false }
+      'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.9, reverb: 0.2 },
+      'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -5, density: 0.4, reverb: 0.8 },
+      'Bright': { text: "捕捉光芒的瞬間", bpmAdd: 5, density: 0.7, reverb: 0.3 },
+      'Calm': { text: "呼吸間的寧靜", bpmAdd: -10, density: 0.3, reverb: 0.5 },
+      'Cozy': { text: "暖色調的午後", bpmAdd: -2, density: 0.5, reverb: 0.4 },
+      'Nostalgic': { text: "泛黃的舊時光", bpmAdd: -8, density: 0.4, reverb: 0.6 },
+      'Urban': { text: "都市霓虹的閃爍", bpmAdd: 10, density: 0.8, reverb: 0.3 },
+      'Tense': { text: "緊繃的視覺張力", bpmAdd: 12, density: 0.9, reverb: 0.4 },
+      'Mysterious': { text: "深邃神祕的暗影", bpmAdd: -4, density: 0.5, reverb: 0.7 },
+      'Melancholy': { text: "雨後的憂鬱藍調", bpmAdd: -12, density: 0.3, reverb: 0.7 },
+      'Lonely': { text: "看見一抹寂靜", bpmAdd: -15, density: 0.2, reverb: 0.9 },
+      'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.1, reverb: 0.8 }
     };
 
     lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
@@ -271,21 +271,23 @@
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
+        // 模擬 AI 分析邏輯（維持後台運算，但不顯示標籤內容）
         const tags = Object.keys(tagMatrix);
         let tagIndex = (r + g + b) % tags.length;
         if (bri > 200) tagIndex = 2; // Bright
-        if (bri < 50) tagIndex = 11; // Static
-        if (b > r + 60) tagIndex = 9; // Melancholy
+        if (bri < 50) tagIndex = 8;  // Mysterious
+        if (b > r + 50) tagIndex = 9; // Melancholy
         
         const selectedTag = tags[tagIndex];
         currentFeatures = { 
           tag: selectedTag,
           tagInfo: tagMatrix[selectedTag],
-          mode: bri > 125 ? 'Major' : 'Minor',
+          mode: (bri/100) > 125 ? 'Major' : 'Minor',
           seed: (r + g + b),
-          bpm: 85 + tagMatrix[selectedTag].bpmAdd
+          bpm: 90 + tagMatrix[selectedTag].bpmAdd
         };
 
+        // 核心修正：文字始終固定，讓使用者感受音樂的隨機與獨特，而非標籤的定義
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
@@ -307,13 +309,9 @@
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
-      const filter = new Tone.Filter(1000, "lowpass").toDestination();
-      synths.reverb = new Tone.Reverb({ decay: 5, wet: 0.3 }).connect(filter);
+      const filter = new Tone.Filter(1200, "lowpass").toDestination();
+      synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
-
-      synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(600, "lowpass").toDestination());
-      synths.noise.volume.value = -Infinity; 
-      synths.noise.start();
 
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
@@ -322,10 +320,10 @@
 
       synths.guitar = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: "triangle" },
-        envelope: { attack: 0.1, decay: 1, sustain: 0.2, release: 2 }
+        envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
       }).connect(chorus);
 
-      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" }, envelope: { attack: 0.1 } }).toDestination();
+      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
       synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
       synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
       audioInited = true;
@@ -340,75 +338,52 @@
       Tone.Transport.bpm.value = f.bpm;
       synths.reverb.wet.value = info.reverb; 
 
-      // 雜音調整
-      if (musicMode === 'lofi') {
-        synths.noise.volume.rampTo(info.hasDrums ? -45 : -35, 2); 
-      } else {
-        synths.noise.volume.rampTo(-Infinity, 1); 
-      }
+      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
+      const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
 
-      // 音階極端化處理
-      const oct = info.octave;
-      const baseScale = f.mode === 'Major' ? ["C", "D", "E", "G", "A"] : ["A", "C", "D", "E", "G"];
-      const finalScale = baseScale.map(note => note + (4 + oct));
-      
+      Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
       const sequence = [];
 
       for (let bar = 0; bar < 16; bar++) {
-        // 節奏大幅度不同：只有 hasDrums 為 true 的標籤才有鼓聲
-        if (info.hasDrums) {
-          if (bar % 2 === 0 || info.density > 0.7) {
-            sequence.push({ time: `${bar}:0:0`, type: "kick" });
-            if (info.density > 0.5) sequence.push({ time: `${bar}:2:0`, type: "kick" });
-          }
-          sequence.push({ time: `${bar}:1:0`, type: "snare" });
-          sequence.push({ time: `${bar}:3:0`, type: "snare" });
+        if (bar % 2 === 0 || info.density > 0.6) {
+          sequence.push({ time: `${bar}:0:0`, type: "kick" });
+          sequence.push({ time: `${bar}:2:0`, type: "kick" });
         }
+        sequence.push({ time: `${bar}:1:0`, type: "snare" });
+        sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
         if (musicMode === 'jazz') {
-          // Jazz 模式下的低音起伏
-          if (info.hasDrums) {
-             const bNote = (f.mode === 'Major' ? "C" : "A") + (2 + oct);
-             sequence.push({ time: `${bar}:0:0`, type: "bass", note: bNote });
+          for (let beat = 0; beat < 4; beat++) {
+            if (Math.random() < info.density + 0.2) {
+              const note = jazzScale[(f.seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
+              sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
+            }
           }
-          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [finalScale[0], finalScale[2], finalScale[4]] });
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
         } else {
-          // Lo-fi 模式：長音 vs 碎音
-          if (bar % 4 === 0) {
-            const pianoNotes = info.hasDrums ? [finalScale[0], finalScale[2]] : [finalScale[0], finalScale[2], finalScale[4]];
-            sequence.push({ time: `${bar}:0:0`, type: "piano", notes: pianoNotes });
-          }
-          
-          // 根據密度決定撥弦頻率
-          if (Math.random() < info.density) {
-            const note = finalScale[(f.seed + bar) % finalScale.length];
-            sequence.push({ time: `${bar}:${(bar%3)}:2`, type: "guitar", note: note });
-          }
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
+          const guitarDensity = info.density;
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(f.seed + bar) % scale.length] });
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(f.seed + bar + 3) % scale.length] });
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(f.seed + bar + 5) % scale.length] });
         }
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "2n", time, 0.3);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.3);
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "1n", time, 0.3);
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
+        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
       }, sequence).start(0);
 
-      Tone.Transport.loop = true; 
-      Tone.Transport.loopEnd = "16m";
+      Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
       stopBtn.disabled = false; playBtn.disabled = true;
     });
     
-    stopBtn.addEventListener('click', () => { 
-      Tone.Transport.stop(); 
-      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
-      playBtn.disabled = false; 
-      stopBtn.disabled = true; 
+    stopBtn.addEventListener('click', () => { Tone.Transport.stop(); playBtn.disabled = false; stopBtn.disabled = true; 
     });
-    
-</script>
     
   </script>
 </body>
