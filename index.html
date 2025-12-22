@@ -287,7 +287,7 @@
           bpm: 90 + tagMatrix[selectedTag].bpmAdd
         };
 
-        // 核心修正：文字始終固定，讓使用者感受音樂的隨機與獨特，而非標籤的定義
+        // 核心修正：文字始終固定
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
@@ -306,14 +306,14 @@
       playBtn.disabled = false;
     }
 
-   async function initAudio() {
+    async function initAudio() {
       if (audioInited) return;
       await Tone.start();
       const filter = new Tone.Filter(1200, "lowpass").toDestination();
       synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
 
-      // --- 加入黑膠雜音合成器：降低頻率讓聲音更溫和 ---
+      // --- 黑膠雜音合成器：降低頻率讓聲音更溫和 ---
       synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(800, "lowpass").toDestination());
       synths.noise.volume.value = -Infinity; 
       synths.noise.start();
@@ -329,8 +329,8 @@
       }).connect(chorus);
 
       synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
-      synths.kick = new Tone.MembraneSynth({ volume: -29 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -42 }).connect(filter);
+      synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
       audioInited = true;
     }
 
@@ -338,13 +338,20 @@
       await initAudio();
       Tone.Transport.stop(); Tone.Transport.cancel();
       
-      // 根據標籤決定黑膠雜音量 (大幅調低音量，並延遲啟動以同步音樂)
+      const f = currentFeatures;
+      const info = f.tagInfo;
+      Tone.Transport.bpm.value = f.bpm;
+      synths.reverb.wet.value = info.reverb; 
+
+      // 同步進入 + 音量調小修正
       if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -35 : -50;
+        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -42 : -55;
         synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
       } else {
         synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
       }
+
+      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
       const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
 
       Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
@@ -390,7 +397,7 @@
     
     stopBtn.addEventListener('click', () => { 
       Tone.Transport.stop(); 
-      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); // 停止時關閉雜音
+      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
       playBtn.disabled = false; 
       stopBtn.disabled = true; 
     });
