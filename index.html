@@ -281,18 +281,42 @@
     }
 
     async function initAudio() {
-      if (audioInited) return;
-      await Tone.start();
-      const filter = new Tone.Filter(1300, "lowpass").toDestination();
-      reverb = new Tone.Reverb({ decay: 4 + (currentFeatures.complexity * 4), wet: 0.2 + (currentFeatures.complexity * 0.3) }).connect(filter);
-      
-      synths.piano = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.1, release: 2 }, volume: -5 }).connect(reverb);
-      synths.guitar = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.05, decay: 0.3, release: 1 }, volume: -10 }).connect(reverb);
-      synths.kick = new Tone.MembraneSynth({ volume: -14 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -26 }).connect(filter);
-      synths.hihat = new Tone.MetalSynth({ volume: -32, envelope: { decay: 0.05 } }).connect(filter);
-      audioInited = true;
-    }
+  if (audioInited) return;
+  await Tone.start();
+
+  // 1. 建立 Lo-Fi 核心濾鏡
+  const filter = new Tone.Filter(1300, "lowpass").toDestination();
+  reverb = new Tone.Reverb({ 
+    decay: 4 + (currentFeatures.complexity * 4), 
+    wet: 0.2 + (currentFeatures.complexity * 0.3) 
+  }).connect(filter);
+
+  // 2. 新增：黑膠唱片雜音產生器 (Vinyl Crackle)
+  // 使用 Noise 產生基礎雜訊，並用極低的音量 (-45) 確保不吵雜
+  const vinylNoise = new Tone.Noise("pink").start();
+  const vinylFilter = new Tone.Filter(1000, "bandpass").toDestination();
+  vinylNoise.volume.value = -45; // 控制雜音音量，-45 是很細微的背景聲
+  vinylNoise.connect(vinylFilter);
+
+  // 3. 原有的樂器連接設定
+  synths.piano = new Tone.PolySynth(Tone.Synth, { 
+    oscillator: { type: "triangle" }, 
+    envelope: { attack: 0.1, release: 2 }, 
+    volume: -5 
+  }).connect(reverb);
+  
+  synths.guitar = new Tone.PolySynth(Tone.Synth, { 
+    oscillator: { type: "sine" }, 
+    envelope: { attack: 0.05, decay: 0.3, release: 1 }, 
+    volume: -10 
+  }).connect(reverb);
+
+  synths.kick = new Tone.MembraneSynth({ volume: -14 }).connect(filter);
+  synths.snare = new Tone.NoiseSynth({ volume: -26 }).connect(filter);
+  synths.hihat = new Tone.MetalSynth({ volume: -32, envelope: { decay: 0.05 } }).connect(filter);
+  
+  audioInited = true;
+}
 
     playBtn.addEventListener('click', async () => {
       await initAudio();
