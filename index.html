@@ -280,77 +280,80 @@
       playBtn.disabled = false;
     }
 
-    // 定義 ASMR 樂器變數 (放在 initAudio 之外)
-    let asmrSynths = {};
+    // --- 1. 樂器與狀態變數 (請確保這塊在 initAudio 之前) ---
+    const synths = {};
+    let asmrSynths = {}; // 存放 ASMR 的櫃子
+    let audioInited = false;
+    let currentFeatures = { bpm: 80, mode: 'Major', brightness: 0.5 };
 
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
 
+      // 核心濾鏡
       const filter = new Tone.Filter(1200, "lowpass").toDestination();
       const reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
 
-      // 1. 固定黑膠雜音 (底噪)
+      // 固定黑膠雜音 (Vinyl Noise)
       const vinylNoise = new Tone.Noise("pink").start();
-      vinylNoise.volume.value = -48; // 調得很輕，作為質感底層
+      vinylNoise.volume.value = -48;
       vinylNoise.connect(new Tone.Filter(1000, "bandpass").toDestination());
 
-      // 2. 鋼琴與吉他 (維持您的數值與穩定性)
+      // 鋼琴 (Sampler)
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", A2: "A2.mp3", C4: "C4.mp3", A4: "A4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(reverb);
       synths.piano.volume.value = -6;
 
+      // 吉他 (物理建模)
       synths.guitar = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: "triangle" },
         envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
       }).connect(chorus);
       synths.guitar.volume.value = -12; 
       
+      // 鼓組
       synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
       synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
       synths.hihat = new Tone.MetalSynth({ volume: -40 }).connect(filter);
 
-      // --- 3. 增加 ASMR 合成器 (根據色彩調整) ---
-      // 雨聲模擬
+      // --- ASMR 聲音產生器 (不需下載，絕對會響) ---
+      // 雨聲
       asmrSynths.rain = new Tone.Noise("white").connect(new Tone.Filter(800, "lowpass").toDestination());
-      asmrSynths.rain.volume.value = -99; // 預設靜音
+      asmrSynths.rain.volume.value = -99; 
       asmrSynths.rain.start();
 
-      // 風聲模擬
+      // 風聲
       asmrSynths.wind = new Tone.AutoFilter("1n", 400, 4).connect(new Tone.Noise("pink").start()).toDestination();
-      asmrSynths.wind.volume.value = -99; // 預設靜音
+      asmrSynths.wind.volume.value = -99;
 
       audioInited = true;
     }
 
+    // --- 2. 播放按鈕邏輯 ---
     playBtn.addEventListener('click', async () => {
       await initAudio();
       Tone.Transport.stop();
       Tone.Transport.cancel();
       
-      const f = currentFeatures; // 這裡讀取照片特徵
+      const f = currentFeatures;
       Tone.Transport.bpm.value = f.bpm;
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
 
-      // --- ASMR 色彩觸發邏輯 ---
-      // 重置所有 ASMR 音量
+      // --- ASMR 切換 (根據照片亮度) ---
       asmrSynths.rain.volume.rampTo(-99, 1);
       asmrSynths.wind.volume.rampTo(-99, 1);
 
-      // 根據照片亮度或色彩決定 ASMR (示範兩種最穩定的)
-      if (f.brightness < 0.4) {
-        // 較暗的照片 -> 觸發雨聲
-        asmrSynths.rain.volume.rampTo(-35, 2); 
+      if (f.brightness < 0.45) {
+        asmrSynths.rain.volume.rampTo(-32, 3); // 陰暗照片響起雨聲
       } else {
-        // 較亮的照片 -> 觸發微風
         asmrSynths.wind.start();
-        asmrSynths.wind.volume.rampTo(-30, 2);
+        asmrSynths.wind.volume.rampTo(-28, 3); // 明亮照片響起風聲
       }
 
-      // --- 以下為您最滿意的原始音樂旋律與節奏 (完全不動) ---
+      // 旋律排程 (完全保留您原本最喜歡的版本)
       const sequence = [];
       for (let bar = 0; bar < 16; bar++) {
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
@@ -381,9 +384,15 @@
       stopBtn.disabled = false;
       playBtn.disabled = true;
     });
-    
-  stopBtn.addEventListener('click', () => {
+
+    // --- 3. 停止按鈕邏輯 (確保結尾完整) ---
+    stopBtn.addEventListener('click', () => {
       Tone.Transport.stop();
+      // 停止時也讓 ASMR 消失
+      if(audioInited) {
+        asmrSynths.rain.volume.rampTo(-99, 1);
+        asmrSynths.wind.volume.rampTo(-99, 1);
+      }
       playBtn.disabled = false;
       stopBtn.disabled = true;
     });
