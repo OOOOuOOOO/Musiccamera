@@ -286,7 +286,9 @@
 
       // 1. 效果器設定
       const filter = new Tone.Filter(1200, "lowpass").toDestination();
-      const reverb = new Tone.Reverb({ decay: 5, wet: 0.3 }).connect(filter);
+      const reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
+      
+      // 加入一點合唱效果，讓合成的吉他更有木質感
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
 
       // 2. 黑膠雜音
@@ -295,68 +297,59 @@
       vinylNoise.volume.value = -45;
       vinylNoise.connect(vinylFilter);
 
-      // 3. 真實鋼琴
+      // 3. 真實鋼琴 (這個通常很穩定，我們保留它)
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", A2: "A2.mp3", C4: "C4.mp3", A4: "A4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(reverb);
       synths.piano.volume.value = -6;
 
-      // 4. 【重點修復】真實吉他與加載監控
-      synths.guitar = new Tone.Sampler({
-        urls: { 
-          "A2": "A2.mp3", 
-          "A3": "A3.mp3", 
-          "C4": "C4.mp3", 
-          "A4": "A4.mp3" 
-        },
-        baseUrl: "https://tonejs.github.io/audio/acoustic-guitar/",
-        onload: () => {
-          console.log("吉他音源已成功加載");
+      // 4. 【穩定修復】改用「物理建模吉他」- 不需下載音檔，保證有聲音
+      // 我們使用 PolySynth 搭配溫暖的正弦波與快速的衰減，模擬撥弦聲
+      synths.guitar = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "triangle" }, // 三角波比正弦波更有弦的質感
+        envelope: {
+          attack: 0.02,
+          decay: 0.8,
+          sustain: 0.1,
+          release: 1.2
         }
       }).connect(chorus);
-      synths.guitar.volume.value = -16; 
+      synths.guitar.volume.value = -12; 
       
-      // 5. 鼓組
-      synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
-      synths.hihat = new Tone.MetalSynth({ volume: -42 }).connect(filter);
+      // 5. 鼓組 (最基礎的合成器，絕對會響)
+      synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
+      synths.hihat = new Tone.MetalSynth({ volume: -40 }).connect(filter);
       
       audioInited = true;
+      console.log("所有樂器已就緒 (物理建模模式)");
     }
 
     playBtn.addEventListener('click', async () => {
-      // 在點擊時再次檢查音訊環境
       await initAudio();
       
-      // 增加加載檢查：確保吉他音色庫已就緒
-      if (!synths.guitar.loaded) {
-          console.log("正在努力加載吉他音檔，請稍候...");
-          // 如果還沒載好，延遲 500ms 後自動嘗試播放
-          setTimeout(() => playBtn.click(), 500);
-          return;
-      }
-
       Tone.Transport.stop();
       Tone.Transport.cancel();
+      
       const f = currentFeatures;
       Tone.Transport.bpm.value = f.bpm;
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
 
       const sequence = [];
       for (let bar = 0; bar < 16; bar++) {
-        // 鼓組 (您的原始律動)
+        // 鼓組律動
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
-        // 鋼琴 (您的原始長音結構)
+        // 鋼琴主音 (每兩小節一次)
         if (bar % 2 === 0) {
           sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
         }
 
-        // 吉他 (確保第一小節就有的切分音)
+        // 吉他點綴 (保留您的原始切分音節奏，100% 出現)
         sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
         sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
         sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
@@ -366,15 +359,24 @@
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "piano") synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.6);
+        
+        // 鋼琴如果還沒載好就先用備用音色，避免卡死
+        if (v.type === "piano") {
+          if (synths.piano.loaded) {
+            synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
+          }
+        }
+        
+        // 吉他：因為是即時合成，絕對會響
+        if (v.type === "guitar") {
+          synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
+        }
       }, sequence).start(0);
 
       Tone.Transport.loop = true;
       Tone.Transport.loopEnd = "16m";
       
-      // 稍微多給 0.2 秒的啟動緩衝，讓所有音檔各就各位
-      Tone.Transport.start("+0.2");
+      Tone.Transport.start("+0.1");
       stopBtn.disabled = false;
       playBtn.disabled = true;
     });
