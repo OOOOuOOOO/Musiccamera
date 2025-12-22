@@ -287,8 +287,6 @@
       // 1. 核心濾鏡與空間感
       const filter = new Tone.Filter(1200, "lowpass").toDestination();
       const reverb = new Tone.Reverb({ decay: 5, wet: 0.3 }).connect(filter);
-      
-      // 加入 Chorus 效果器，讓吉他有溫暖的晃動感
       const chorus = new Tone.Chorus(2, 2, 0.5).connect(reverb).start();
 
       // 2. 黑膠雜音
@@ -304,30 +302,18 @@
       }).connect(reverb);
       synths.piano.volume.value = -6;
 
-      // 4. 【核心更換】換成音質更好的 Acoustic Guitar
+      // 4. 高品質民謠吉他 (已連接 Chorus 效果)
       synths.guitar = new Tone.Sampler({
-        urls: {
-          "A2": "A2.mp3",
-          "A3": "A3.mp3",
-          "C4": "C4.mp3",
-          "A4": "A4.mp3"
-        },
+        urls: { "A2": "A2.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "A4": "A4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/acoustic-guitar/",
-        onload: () => { console.log("高品質民謠吉他加載完成"); }
-      }).connect(chorus); // 連接到 chorus 增加 Lo-fi 感
-      synths.guitar.volume.value = -20; // 保持背景音量
-      
+        onload: () => { console.log("高品質吉他加載完成"); }
+      }).connect(chorus);
+      synths.guitar.volume.value = -22; // 設定為溫柔的背景音量
+
+      // 5. 鼓組 (務必包含這段，按鈕才不會失效)
       synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
       synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
       synths.hihat = new Tone.MetalSynth({ volume: -42 }).connect(filter);
-      
-      audioInited = true;
-    }
-
-      // 5. 【調小音量】鼓組 (Drums)
-      synths.kick = new Tone.MembraneSynth({ volume: -30 }).connect(filter); // 大鼓調弱
-      synths.snare = new Tone.NoiseSynth({ volume: -50 }).connect(filter);   // 小鼓調弱
-      synths.hihat = new Tone.MetalSynth({ volume: -50, envelope: { decay: 0.05 } }).connect(filter); // 踏鈸調更弱
       
       audioInited = true;
     }
