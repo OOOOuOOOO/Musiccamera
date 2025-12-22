@@ -74,7 +74,6 @@
     }
     .sub-btn:enabled { color: #fff; }
 
-    /* 錄影按鈕特殊樣式 */
     #recBtn.recording {
       background: #b30000;
       color: #fff;
@@ -155,7 +154,6 @@
     .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
     .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer;}
 
-    /* 隱藏錄製用的 Canvas */
     #recordCanvas { display: none; }
     #canvas { display: none; }
   </style>
@@ -195,12 +193,11 @@
 
   <div id="cameraOverlay">
     <video id="videoPreview" autoplay playsinline></video>
-   <div class="overlay-controls">
-  <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">相簿</button>
-  <button class="snap-trigger" id="snapBtn"></button>
-  <button id="switchCamBtn" style="background:rgba(255,255,255,0.2); color:#fff; border:1px solid #fff; width:40px; height:40px; border-radius:50%; cursor:pointer;">⇄</button>
-  <button id="closeOverlay" style="color:white; background:none; border:none; cursor:pointer;">✕</button>
-</div>
+    <div class="overlay-controls">
+      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">相簿</button>
+      <button class="snap-trigger" id="snapBtn"></button>
+      <button id="closeOverlay" style="color:white; background:none; border:none; cursor:pointer;">✕</button>
+    </div>
   </div>
   
   <input type="file" id="fileInput" accept="image/*" style="display:none;">
@@ -228,11 +225,10 @@
     const recordCanvas = document.getElementById('recordCanvas');
     const lofiModeBtn = document.getElementById('lofiModeBtn');
     const jazzModeBtn = document.getElementById('jazzModeBtn');
-    const switchCamBtn = document.getElementById('switchCamBtn');
-let currentFacingMode = "environment";
 
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
     let mediaRecorder, recordedChunks = [];
+    let activePart = null;
 
     const tagMatrix = {
       'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.9, reverb: 0.2 },
@@ -249,27 +245,25 @@ let currentFacingMode = "environment";
       'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.1, reverb: 0.8 }
     };
 
+    const chordProgressions = {
+      warm: [["Cmaj7", "Am7", "Dm7", "G7"], ["Fmaj7", "G7", "Em7", "Am7"], ["Cmaj7", "Fmaj7", "Dm7", "E7"]],
+      deep: [["Am7", "Dm7", "G7", "Cmaj7"], ["Fmaj7", "E7", "Am7", "Gm7"], ["Dm7", "G7", "Cmaj7", "A7"]]
+    };
+
     lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
     jazzModeBtn.addEventListener('click', () => { musicMode = 'jazz'; jazzModeBtn.classList.add('active'); lofiModeBtn.classList.remove('active'); });
 
     async function startCamera() {
-  if (stream) { stream.getTracks().forEach(t => t.stop()); } // 切換前先停止舊串流
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: currentFacingMode } 
-    });
-    videoPreview.srcObject = stream;
-    cameraOverlay.style.display = 'flex';
-  } catch (e) { fileInput.click(); }
-}
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        videoPreview.srcObject = stream;
+        cameraOverlay.style.display = 'flex';
+      } catch (e) { fileInput.click(); }
+    }
     function stopCamera() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } cameraOverlay.style.display = 'none'; }
     openCamBtn.addEventListener('click', startCamera);
     closeOverlay.addEventListener('click', stopCamera);
     albumBtn.addEventListener('click', () => fileInput.click());
-    switchCamBtn.addEventListener('click', () => {
-  currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
-  startCamera(); 
-});
 
     snapBtn.addEventListener('click', () => {
       const ctx = canvas.getContext('2d');
@@ -358,89 +352,69 @@ let currentFacingMode = "environment";
       audioInited = true;
     }
 
-   // --- 【核心音樂引擎：Lo-Fi 優化 + Jazz 保留】 ---
-    const chordProgressions = {
-      warm: [["Cmaj7", "Am7", "Dm7", "G7"], ["Fmaj7", "G7", "Em7", "Am7"], ["Cmaj7", "Fmaj7", "Dm7", "E7"]],
-      deep: [["Am7", "Dm7", "G7", "Cmaj7"], ["Fmaj7", "E7", "Am7", "Gm7"], ["Dm7", "G7", "Cmaj7", "A7"]]
-    };
-
-    let activePart = null;
-
-    // 播放按鈕
+    // --- 核心播放邏輯：LOFI 優化 + JAZZ 恢復 ---
     playBtn.addEventListener('click', async () => {
       await initAudio();
-      
-      // 1. 徹底停止並清理舊的播放內容
       Tone.Transport.stop();
       Tone.Transport.cancel();
       if(activePart) { activePart.dispose(); activePart = null; }
       
       const f = currentFeatures;
-      const seed = f.seed;
       const info = f.tagInfo;
+      const seed = f.seed;
+      Tone.Transport.bpm.value = f.bpm;
 
-      // 2. 空間濾鏡設置 (Lo-Fi 專屬)
-      let distance = "near";
-      if (f.tag === 'Lonely' || f.tag === 'Melancholy' || f.tag === 'Mysterious') distance = "far";
-      else if (f.tag === 'Nostalgic' || f.tag === 'Dreamy' || f.tag === 'Calm') distance = "muffled";
-
+      // 1. 環境音與濾鏡設置
       if (musicMode === 'lofi') {
-        const wet = (distance === "far") ? 0.7 : (distance === "muffled" ? 0.5 : 0.25);
-        synths.reverb.wet.rampTo(wet, 1);
-        synths.noise.volume.rampTo(distance === "near" ? -45 : -35, 2);
+        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -30 : -40;
+        synths.noise.volume.rampTo(noiseLevel, 2); 
+        synths.reverb.wet.rampTo(info.reverb > 0.6 ? 0.6 : 0.35, 1);
       } else {
-        synths.noise.volume.rampTo(-Infinity, 1);
-        synths.reverb.wet.value = 0.3;
+        synths.noise.volume.rampTo(-Infinity, 1); 
+        synths.reverb.wet.rampTo(0.2, 1);
       }
 
-      Tone.Transport.bpm.value = f.bpm;
+      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4", "C5"] : ["A3", "C4", "D4", "E4", "G4", "A4"];
+      const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
+
+      Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
       const sequence = [];
 
-      // 3. 模式判斷
-      if (musicMode === 'lofi') {
-        // --- Lo-Fi StreetVoice 旋律生成 ---
-        const category = f.mode === 'Major' ? 'warm' : 'deep';
-        const prog = chordProgressions[category][seed % 3];
-        const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4", "C5"] : ["A3", "C4", "D4", "E4", "G4", "A4"];
-        
-        for (let bar = 0; bar < 16; bar++) {
-          const root = prog[bar % prog.length][0].substring(0, 1) + "3";
-          
-          // 節奏層 (呼吸感)
+      for (let bar = 0; bar < 16; bar++) {
+        // --- 共通節奏部 ---
+        if (bar % 2 === 0 || info.density > 0.6) {
           sequence.push({ time: `${bar}:0:0`, type: "kick" });
-          sequence.push({ time: `${bar}:1:0.2`, type: "snare" });
           sequence.push({ time: `${bar}:2:0`, type: "kick" });
-          sequence.push({ time: `${bar}:3:0.2`, type: "snare" });
-          sequence.push({ time: `${bar}:0:1`, type: "bass", note: root.replace('3','2') });
-
-          // 豐富旋律層：雙聲部鋼琴 (確保旋律連貫)
-          if (bar % 2 === 0) {
-            sequence.push({ time: `${bar}:0:2`, type: "piano", note: scale[seed % 4], dur: "2n" });
-            sequence.push({ time: `${bar}:1:2`, type: "piano", note: scale[(seed + 1) % 5], dur: "4n" });
-          } else {
-            sequence.push({ time: `${bar}:0:0`, type: "piano", note: scale[(seed + bar) % 6], dur: "4n" });
-            sequence.push({ time: `${bar}:1:0`, type: "piano", note: scale[(seed + 2) % 6], dur: "4n" });
-            if (seed % 3 === 0) {
-              sequence.push({ time: `${bar}:2:2`, type: "piano", note: scale[seed % 6].replace('4','5'), dur: "2n" });
-            }
-          }
         }
-      } else {
-        // --- Jazz 邏輯（完整保留舊有內容） ---
-        const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
-        Tone.Transport.swing = 0.4;
-        for (let bar = 0; bar < 16; bar++) {
-          sequence.push({ time: `${bar}:0:0`, type: "kick" });
-          sequence.push({ time: `${bar}:1:0`, type: "snare" });
-          sequence.push({ time: `${bar}:2:0`, type: "kick" });
-          sequence.push({ time: `${bar}:3:0`, type: "snare" });
+        sequence.push({ time: `${bar}:1:0`, type: "snare" });
+        sequence.push({ time: `${bar}:3:0`, type: "snare" });
+
+        if (musicMode === 'jazz') {
+          // --- 恢復原本 Jazz 邏輯 ---
           for (let beat = 0; beat < 4; beat++) {
-            if (Math.random() < 0.6) {
-              sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[(seed + beat) % 7].replace('3','2') });
+            if (Math.random() < info.density + 0.2) {
+              const note = jazzScale[(seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
+              sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
             }
           }
-          if (bar % 4 === 0) {
-            sequence.push({ time: `${bar}:0:2`, type: "piano", notes: ["C3", "Eb3", "G3"], dur: "2n" });
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
+        } else {
+          // --- Lo-Fi 多變旋律邏輯 ---
+          const category = f.mode === 'Major' ? 'warm' : 'deep';
+          const prog = chordProgressions[category][seed % 3];
+          const root = prog[bar % prog.length][0].substring(0, 1) + "2";
+          sequence.push({ time: `${bar}:0:0`, type: "bass", note: root });
+
+          const melodyStyle = (seed + bar) % 3;
+          if (melodyStyle === 0) {
+            sequence.push({ time: `${bar}:0:2`, type: "piano", note: scale[bar % 6], dur: "2n" });
+            sequence.push({ time: `${bar}:2:0`, type: "piano", note: scale[(bar+2) % 6], dur: "4n" });
+          } else if (melodyStyle === 1) {
+            sequence.push({ time: `${bar}:1:0`, type: "piano", note: scale[seed % 6], dur: "8n" });
+            sequence.push({ time: `${bar}:1:2`, type: "piano", note: scale[(seed+1) % 6], dur: "8n" });
+            sequence.push({ time: `${bar}:2:0`, type: "piano", note: scale[(seed+2) % 6], dur: "4n" });
+          } else {
+            sequence.push({ time: `${bar}:0:0`, type: "piano", note: scale[5], dur: "1n" });
           }
         }
       }
@@ -450,36 +424,32 @@ let currentFacingMode = "environment";
         if (v.type === "snare") synths.snare.triggerAttack(time);
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "2n", time, 0.4);
         if (v.type === "piano" && synths.piano.loaded) {
-          const vel = musicMode === 'lofi' ? (0.3 + Math.random() * 0.2) : 0.5;
-          synths.piano.triggerAttackRelease(v.notes || v.note, v.dur || "4n", time, vel);
+            const vel = musicMode === 'lofi' ? (0.3 + Math.random() * 0.2) : 0.4;
+            synths.piano.triggerAttackRelease(v.notes || v.note, v.dur || "1n", time, vel);
         }
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
       }, sequence).start(0);
 
-      Tone.Transport.loop = true; 
-      Tone.Transport.loopEnd = "16m";
+      Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
-      
       stopBtn.disabled = false; playBtn.disabled = true;
     });
-
-    // 停止按鈕 (徹底修正：確保聲音切斷)
+    
+    // --- 徹底修復的 STOP 按鈕 ---
     stopBtn.addEventListener('click', () => { 
       Tone.Transport.stop(); 
       Tone.Transport.cancel(); 
       if(activePart) { activePart.dispose(); activePart = null; }
       
-      // 靜音所有合成器防止殘音
       Object.values(synths).forEach(s => {
-        if(s.volume) s.volume.rampTo(-Infinity, 0.2);
+        if(s.volume && s !== synths.noise) s.volume.value = -Infinity;
         if(s.releaseAll) s.releaseAll();
       });
+      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
       
       playBtn.disabled = false; 
       stopBtn.disabled = true; 
     });
-    // --- 音樂生成邏輯結束 ---
-
-    // --- 新增：影片錄製功能 ---
 
     recBtn.addEventListener('click', () => {
       if (mediaRecorder && mediaRecorder.state === "recording") {
@@ -494,8 +464,6 @@ let currentFacingMode = "environment";
    async function startRecording() {
       await initAudio();
       recordedChunks = [];
-      
-      // 1. 自動偵測支援的格式
       const types = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
       let supportedType = types.find(type => MediaRecorder.isTypeSupported(type));
 
@@ -510,15 +478,11 @@ let currentFacingMode = "environment";
 
       function updateCanvas() {
         if (!mediaRecorder || mediaRecorder.state !== "recording") return;
-        
-        // 繪製拍立得白底背景
         rCtx.fillStyle = "#fff";
         rCtx.fillRect(0, 0, 400, 500);
-        
-        // --- 修正變形：中心裁剪繪製 ---
         const img = preview;
-        const targetSize = 360; // 影片中照片顯示的大小
-        const targetX = 20;     // 邊距
+        const targetSize = 360; 
+        const targetX = 20;     
         const targetY = 20;
 
         if (img.complete && img.naturalWidth > 0) {
@@ -527,43 +491,31 @@ let currentFacingMode = "environment";
           const minSide = Math.min(sw, sh);
           const sx = (sw - minSide) / 2;
           const sy = (sh - minSide) / 2;
-
-          // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
           rCtx.drawImage(img, sx, sy, minSide, minSide, targetX, targetY, targetSize, targetSize);
         } else {
-          // 若圖片未加載完成，填入深色背景
           rCtx.fillStyle = "#222";
           rCtx.fillRect(targetX, targetY, targetSize, targetSize);
         }
-        
-        // 繪製日期
         rCtx.font = "24px 'Nanum Pen Script'";
         rCtx.fillStyle = "#444";
         rCtx.fillText(filmDate.innerText, 280, 460);
-        
         requestAnimationFrame(updateCanvas);
       }
 
-      // 2. 獲取流
       const canvasStream = recordCanvas.captureStream(30);
       const audioDest = Tone.getContext().rawContext.createMediaStreamDestination();
       Tone.getDestination().connect(audioDest);
-      
       const combinedStream = new MediaStream([
         ...canvasStream.getVideoTracks(),
         ...audioDest.stream.getAudioTracks()
       ]);
 
-      // 3. 啟動
       mediaRecorder = new MediaRecorder(combinedStream, { 
         mimeType: supportedType,
         videoBitsPerSecond : 2500000 
       });
       
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunks.push(e.data);
-      };
-
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
       mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: supportedType });
         const url = URL.createObjectURL(blob);
@@ -577,10 +529,8 @@ let currentFacingMode = "environment";
       recBtn.classList.add('recording');
       recBtn.innerText = "STOP & SAVE";
       updateCanvas();
-      
       if (Tone.Transport.state !== "started") playBtn.click();
     }
-    
   </script>
 </body>
 </html>
