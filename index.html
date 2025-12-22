@@ -345,7 +345,7 @@
 
       // 同步進入 + 音量調小修正
       if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -42 : -55;
+        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -38 : -50;
         synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
       } else {
         synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
