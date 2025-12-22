@@ -48,6 +48,27 @@
       box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 1px 1px #fff; color: #fff; text-align: center;
     }
 
+    /* 新增：風格切換開關樣式 */
+    .style-selector {
+      display: flex; justify-content: center; align-items: center;
+      margin-bottom: 15px; gap: 10px; font-size: 12px; color: #888;
+    }
+    .toggle-switch {
+      position: relative; display: inline-block; width: 44px; height: 22px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #333; transition: .4s; border-radius: 34px; border: 1px solid #444;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 14px; width: 14px; left: 4px; bottom: 3px;
+      background-color: #888; transition: .4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #9d6d48; }
+    input:checked + .slider:before { transform: translateX(22px); background-color: white; }
+    .active-label { color: #fff; font-weight: bold; }
+
     .main-btn {
       width: 100%; height: 50px; background: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
       border-radius: 25px; border: none; color: #1a1a1a; font-size: 18px; font-weight: 800;
@@ -145,6 +166,15 @@
     </div>
 
     <div class="control-center">
+      <div class="style-selector">
+        <span id="lofiLabel" class="active-label">Lo-fi</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="styleToggle">
+          <span class="slider"></span>
+        </label>
+        <span id="jazzLabel">Jazz</span>
+      </div>
+
       <button class="main-btn" id="openCamBtn">SHOOT / LOAD</button>
       <div class="sub-btn-group">
         <button class="sub-btn" id="playBtn" disabled>PLAY</button>
@@ -191,12 +221,25 @@
     const filmDate = document.getElementById('filmDate');
     const shutterSfx = document.getElementById('shutterSfx');
     const canvas = document.getElementById('canvas');
+    const styleToggle = document.getElementById('styleToggle');
+    const lofiLabel = document.getElementById('lofiLabel');
+    const jazzLabel = document.getElementById('jazzLabel');
 
     let stream = null;
     let audioInited = false;
     let currentFeatures = null;
     let synths = {};
-    let asmrSynths = {};
+
+    // 切換 UI 標籤顏色
+    styleToggle.addEventListener('change', () => {
+      if(styleToggle.checked) {
+        jazzLabel.classList.add('active-label');
+        lofiLabel.classList.remove('active-label');
+      } else {
+        lofiLabel.classList.add('active-label');
+        jazzLabel.classList.remove('active-label');
+      }
+    });
 
     async function startCamera() {
       try {
@@ -240,15 +283,13 @@
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
-        const avgBri = bri/100;
         currentFeatures = { 
-          mode: avgBri > 120 ? 'Major' : 'Minor',
-          style: avgBri < 120 ? 'Jazz' : 'Lofi',
-          brightness: avgBri / 255,
-          bpm: 80 + Math.floor((avgBri/255) * 20)
+          mode: (bri/100) > 125 ? 'Major' : 'Minor',
+          brightness: (bri/100) / 255,
+          bpm: 80 + Math.floor(((bri/100)/255) * 12)
         };
 
-        analysisText.innerHTML = currentFeatures.style === 'Jazz' ? `沉浸在微醺爵士中` : `聽見風景的溫暖旋律`;
+        analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
     }
@@ -270,34 +311,31 @@
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
-      Tone.context.resume(); // 強制喚醒音訊
 
-      const filter = new Tone.Filter(1200, "lowpass").toDestination();
-      const reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
+      const filter = new Tone.Filter(1000, "lowpass").toDestination();
+      const reverb = new Tone.Reverb({ decay: 5, wet: 0.4 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
 
-      // 1. 黑膠與 ASMR
-      const vinyl = new Tone.Noise("pink").connect(new Tone.Filter(1000, "bandpass").toDestination());
-      vinyl.volume.value = -45; vinyl.start();
-      
-      asmrSynths.rain = new Tone.Noise("white").connect(new Tone.Filter(800, "lowpass").toDestination());
-      asmrSynths.rain.volume.value = -99; asmrSynths.rain.start();
-      
-      // 2. 鋼琴
+      // 黑膠雜音
+      const vinylNoise = new Tone.Noise("pink").start();
+      vinylNoise.volume.value = -45;
+      vinylNoise.connect(new Tone.Filter(1000, "bandpass").toDestination());
+
+      // 鋼琴
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(reverb);
-      synths.piano.volume.value = -6;
+      synths.piano.volume.value = -8;
 
-      // 3. 吉他 (爵士樂的核心)
+      // 物理建模吉他
       synths.guitar = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: "triangle" },
-        envelope: { attack: 0.05, decay: 0.8, sustain: 0.2, release: 1.5 }
+        envelope: { attack: 0.03, decay: 1.2, sustain: 0.1, release: 1.5 }
       }).connect(chorus);
-      synths.guitar.volume.value = -12; 
+      synths.guitar.volume.value = -14; 
       
-      synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
+      synths.kick = new Tone.MembraneSynth({ volume: -18 }).connect(filter);
       synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
       
       audioInited = true;
@@ -309,37 +347,44 @@
       Tone.Transport.cancel();
       
       const f = currentFeatures;
-      Tone.Transport.bpm.value = f.bpm;
+      const isJazz = styleToggle.checked;
       
-      // ASMR 自動觸發
-      if (f.brightness < 0.5) asmrSynths.rain.volume.rampTo(-30, 4);
-      else asmrSynths.rain.volume.rampTo(-99, 4);
+      // 爵士樂通常節奏稍微慢一點點，更有慵懶感
+      Tone.Transport.bpm.value = isJazz ? f.bpm * 0.9 : f.bpm;
 
-      // 音階設定 (爵士風使用更多七和弦音)
-      const scale = f.style === 'Jazz' 
-        ? ["C3", "E3", "G3", "B3", "D4"] // Maj7 
-        : ["C4", "D4", "E4", "G4", "A4"]; // Pentatonic
+      // 音階與和弦定義
+      // Lo-fi 用純五聲音階，Jazz 用帶有 Maj7/9 的和弦音
+      const scale = isJazz 
+        ? (f.mode === 'Major' ? ["C3", "E3", "G3", "B3", "D4"] : ["A2", "C3", "E3", "G3", "B3"]) 
+        : (f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"]);
 
       const sequence = [];
-      const isJazz = f.style === 'Jazz';
-
-      for (let bar = 0; bar < 16; bar++) {
-        // 節奏：爵士風使用 Swing 感覺
+      for (let bar = 0; bar < 8; bar++) {
+        // 鼓組：Jazz 會在反拍多一點點點綴
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
+        if(isJazz && Math.random() > 0.5) sequence.push({ time: `${bar}:3:2`, type: "kick" });
 
+        // 鋼琴和弦：Jazz 使用更飽滿的和弦音
         if (bar % 2 === 0) {
-          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2], scale[3]] });
+          const notes = isJazz ? [scale[0], scale[1], scale[2], scale[3]] : [scale[0], scale[2]];
+          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: notes });
         }
 
-        // 吉他切分音：如果是爵士風，位置會稍微偏移產生搖擺感
-        const offset = isJazz ? "0:0:1" : "0:0:2";
-        sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[scale.length-1] });
+        // 吉他旋律律動
+        if(isJazz) {
+          // Jazz Swing 律動 (稍微延遲的點綴)
+          sequence.push({ time: `${bar}:0:2.5`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+          sequence.push({ time: `${bar}:1:1.5`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+          sequence.push({ time: `${bar}:2:2.5`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+        } else {
+          // Lo-fi 原本的切分音節奏
+          sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+          sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+          sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+        }
       }
 
       new Tone.Part((time, v) => {
@@ -350,15 +395,14 @@
       }, sequence).start(0);
 
       Tone.Transport.loop = true;
-      Tone.Transport.loopEnd = "16m";
+      Tone.Transport.loopEnd = "8m";
       Tone.Transport.start("+0.1");
       stopBtn.disabled = false;
       playBtn.disabled = true;
     });
-
+    
     stopBtn.addEventListener('click', () => {
       Tone.Transport.stop();
-      if(audioInited) asmrSynths.rain.volume.rampTo(-99, 1);
       playBtn.disabled = false;
       stopBtn.disabled = true;
     });
