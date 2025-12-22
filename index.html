@@ -2,21 +2,21 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>Music Camera - Mood Preset Edition</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Music Camera - Memory Edition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700&family=Noto+Serif+TC:wght@600&family=Nanum+Pen+Script&display=swap');
     
-    * { box-sizing: border-box; touch-action: manipulation; }
+    * { box-sizing: border-box; }
     body {
       margin: 0; min-height: 100vh;
       display: flex; align-items: center; justify-content: center;
       background: #e0e0e0; font-family: 'DM Sans', sans-serif;
-      overflow: hidden;
     }
 
+    /* --- 擬物化機身外觀 --- */
     .camera-container {
       width: 380px; background: linear-gradient(180deg, #e8e8e8 0%, #d1d1d1 100%);
       border-radius: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 1px 2px #fff;
@@ -48,6 +48,7 @@
       box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 1px 1px #fff; color: #fff; text-align: center;
     }
 
+    /* 新增：風格切換按鈕樣式 */
     .mode-switch-group {
       display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;
     }
@@ -89,6 +90,7 @@
       background: #000; border-radius: 5px; box-shadow: 0 1px 1px #fff;
     }
 
+    /* 拍立得照片與日期樣式 */
     .polaroid-film {
       width: 220px; background: #fff; padding: 10px 10px 45px 10px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute;
@@ -98,14 +100,40 @@
     .film-inner {
       width: 100%; aspect-ratio: 1; background: #222; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
       position: relative;
     }
-    #preview { width: 100%; height: 100%; object-fit: cover; opacity: 0; }
-    #preview.develop { opacity: 1; transition: opacity 3s; filter: sepia(0.3) contrast(0.9); }
+    #preview { width: 100%; height: 100%; object-fit: contain; opacity: 0; }
+    
+    #preview.develop { 
+      opacity: 1; 
+      transition: opacity 3.5s; 
+      filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2);
+    }
 
+    .film-inner::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, 
+        rgba(255, 80, 0, 0.45) 0%, 
+        rgba(255, 150, 50, 0.2) 35%, 
+        transparent 70%
+      );
+      pointer-events: none;
+      mix-blend-mode: screen; 
+      opacity: 0;
+    }
+
+    .polaroid-film.eject .film-inner::after {
+      opacity: 1;
+      transition: opacity 4s 1s; 
+    }
+    
     .film-date {
       position: absolute; bottom: 12px; right: 15px;
-      font-family: 'Nanum Pen Script', cursive; font-size: 20px; color: #444; opacity: 0;
+      font-family: 'Nanum Pen Script', cursive;
+      font-size: 20px; color: #444; opacity: 0;
     }
     .film-date.show { opacity: 1; transition: opacity 2s 1.5s; }
 
@@ -113,9 +141,10 @@
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000;
     }
-    #videoPreview { width: 100%; max-height: 70vh; object-fit: contain; }
+    #videoPreview { width: 100%; max-width: 100%; max-height: 70vh; object-fit: contain; }
     .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
     .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer;}
+
     #canvas { display: none; }
   </style>
 </head>
@@ -133,6 +162,7 @@
         <button class="mode-btn active" id="lofiModeBtn">LO-FI</button>
         <button class="mode-btn" id="jazzModeBtn">JAZZ</button>
       </div>
+
       <button class="main-btn" id="openCamBtn">SHOOT / LOAD</button>
       <div class="sub-btn-group">
         <button class="sub-btn" id="playBtn" disabled>PLAY</button>
@@ -151,7 +181,7 @@
   </div>
 
   <div id="cameraOverlay">
-    <video id="videoPreview" autoplay playsinline muted></video>
+    <video id="videoPreview" autoplay playsinline></video>
     <div class="overlay-controls">
       <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">相簿</button>
       <button class="snap-trigger" id="snapBtn"></button>
@@ -161,6 +191,7 @@
   
   <input type="file" id="fileInput" accept="image/*" style="display:none;">
   <canvas id="canvas"></canvas>
+  <audio id="shutterSfx" src="polaroid-shutter.mp3"></audio>
 
   <script>
     const openCamBtn = document.getElementById('openCamBtn');
@@ -176,43 +207,31 @@
     const playBtn = document.getElementById('playBtn');
     const stopBtn = document.getElementById('stopBtn');
     const filmDate = document.getElementById('filmDate');
+    const shutterSfx = document.getElementById('shutterSfx');
     const canvas = document.getElementById('canvas');
     const lofiModeBtn = document.getElementById('lofiModeBtn');
     const jazzModeBtn = document.getElementById('jazzModeBtn');
 
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
 
-    // --- Lo-fi 情緒配方庫 ---
-    const moodPresets = {
-      warm: { // 亮色標籤使用
-        bpm: 92, 
-        chords: [["Cmaj7", "E4", "G4", "B4"], ["Fmaj7", "A4", "C5", "E5"], ["G7", "B4", "D5", "F5"], ["Cmaj7", "E4", "G4", "B4"]],
-        hasDrums: true,
-        filterFreq: 2000,
-        flutter: 0.1
-      },
-      city: { // 都市/活力標籤使用
-        bpm: 88,
-        chords: [["Dm7", "F4", "A4", "C5"], ["G7", "B4", "D5", "F5"], ["Cmaj7", "E4", "G4", "B4"], ["A7", "C#5", "E5", "G5"]],
-        hasDrums: true,
-        filterFreq: 1200,
-        flutter: 0.3
-      },
-      rainy: { // 憂鬱/懷舊標籤使用
-        bpm: 80,
-        chords: [["Am9", "C4", "E4", "G4", "B4"], ["Dm9", "F4", "A4", "C5", "E5"], ["G13", "B4", "F5", "E5"], ["Cmaj9", "E4", "G4", "B4", "D5"]],
-        hasDrums: true,
-        filterFreq: 700,
-        flutter: 0.8
-      },
-      space: { // 寂靜/冷色標籤使用
-        bpm: 65,
-        chords: [["Fmaj7", "A4", "C5", "E5"], ["G6", "B4", "D5", "E5"], ["Em7", "G4", "B4", "D5"], ["Am7", "C4", "E4", "G4"]],
-        hasDrums: false,
-        filterFreq: 500,
-        flutter: 1.2
-      }
+    // 12個語意標籤矩陣：定義音樂參數
+    const tagMatrix = {
+      'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.9, reverb: 0.2 },
+      'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -5, density: 0.4, reverb: 0.8 },
+      'Bright': { text: "捕捉光芒的瞬間", bpmAdd: 5, density: 0.7, reverb: 0.3 },
+      'Calm': { text: "呼吸間的寧靜", bpmAdd: -10, density: 0.3, reverb: 0.5 },
+      'Cozy': { text: "暖色調的午後", bpmAdd: -2, density: 0.5, reverb: 0.4 },
+      'Nostalgic': { text: "泛黃的舊時光", bpmAdd: -8, density: 0.4, reverb: 0.6 },
+      'Urban': { text: "都市霓虹的閃爍", bpmAdd: 10, density: 0.8, reverb: 0.3 },
+      'Tense': { text: "緊繃的視覺張力", bpmAdd: 12, density: 0.9, reverb: 0.4 },
+      'Mysterious': { text: "深邃神祕的暗影", bpmAdd: -4, density: 0.5, reverb: 0.7 },
+      'Melancholy': { text: "雨後的憂鬱藍調", bpmAdd: -12, density: 0.3, reverb: 0.7 },
+      'Lonely': { text: "看見一抹寂靜", bpmAdd: -15, density: 0.2, reverb: 0.9 },
+      'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.1, reverb: 0.8 }
     };
+
+    lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
+    jazzModeBtn.addEventListener('click', () => { musicMode = 'jazz'; jazzModeBtn.classList.add('active'); lofiModeBtn.classList.remove('active'); });
 
     async function startCamera() {
       try {
@@ -252,12 +271,23 @@
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
-        let mood = "city";
-        if (bri > 180) mood = "warm";
-        else if (bri < 70) mood = "space";
-        else if (b > r + 30) mood = "rainy";
+        // 模擬 AI 分析邏輯（維持後台運算，但不顯示標籤內容）
+        const tags = Object.keys(tagMatrix);
+        let tagIndex = (r + g + b) % tags.length;
+        if (bri > 200) tagIndex = 2; // Bright
+        if (bri < 50) tagIndex = 8;  // Mysterious
+        if (b > r + 50) tagIndex = 9; // Melancholy
+        
+        const selectedTag = tags[tagIndex];
+        currentFeatures = { 
+          tag: selectedTag,
+          tagInfo: tagMatrix[selectedTag],
+          mode: (bri/100) > 125 ? 'Major' : 'Minor',
+          seed: (r + g + b),
+          bpm: 90 + tagMatrix[selectedTag].bpmAdd
+        };
 
-        currentFeatures = { mood: mood, seed: (r + g + b) };
+        // 核心修正：文字始終固定
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
@@ -271,6 +301,7 @@
       void polaroidFrame.offsetWidth;
       polaroidFrame.classList.add('eject');
       preview.classList.remove('develop');
+      shutterSfx.currentTime = 0; shutterSfx.play().catch(()=>{});
       setTimeout(() => { preview.classList.add('develop'); filmDate.classList.add('show'); }, 100);
       playBtn.disabled = false;
     }
@@ -278,25 +309,28 @@
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
-      
-      // 核心 Lo-fi 效果器鏈
-      synths.filter = new Tone.Filter(1000, "lowpass").toDestination();
-      synths.reverb = new Tone.Reverb({ decay: 5, wet: 0.4 }).connect(synths.filter);
-      
-      // 音高晃動震盪器 (Wow & Flutter)
-      synths.flutterLFO = new Tone.LFO(3, -10, 10).start();
+      const filter = new Tone.Filter(1200, "lowpass").toDestination();
+      synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
+      const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
+
+      // --- 黑膠雜音合成器：降低頻率讓聲音更溫和 ---
+      synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(800, "lowpass").toDestination());
+      synths.noise.volume.value = -Infinity; 
+      synths.noise.start();
 
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(synths.reverb);
 
-      synths.kick = new Tone.MembraneSynth({ volume: -12 }).connect(synths.filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -25 }).connect(synths.filter);
-      
-      // Jazz 專用
-      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
+      synths.guitar = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
+      }).connect(chorus);
 
+      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
+      synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
       audioInited = true;
     }
 
@@ -304,64 +338,70 @@
       await initAudio();
       Tone.Transport.stop(); Tone.Transport.cancel();
       
-      const config = moodPresets[currentFeatures.mood];
-      Tone.Transport.bpm.value = config.bpm;
-      synths.filter.frequency.value = config.filterFreq;
-      synths.flutterLFO.amplitude.value = config.flutter;
+      const f = currentFeatures;
+      const info = f.tagInfo;
+      Tone.Transport.bpm.value = f.bpm;
+      synths.reverb.wet.value = info.reverb; 
 
+      // 同步進入 + 音量調小修正
+      if (musicMode === 'lofi') {
+        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -30 : -40;
+        synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
+      } else {
+        synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
+      }
+
+      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
+      const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
+
+      Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
       const sequence = [];
 
-      if (musicMode === 'lofi') {
-        // --- Lo-fi 引擎：結構化生成 ---
-        for (let bar = 0; bar < 8; bar++) {
-          const chordInfo = config.chords[bar % config.chords.length];
-          const chordNotes = chordInfo.slice(1);
-          
-          // 背景和弦
-          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: chordNotes, dur: "1n" });
-
-          // 強制鎖定旋律：只從和弦組成音挑選
-          if (bar % 1 === 0) {
-            const mNote = chordNotes[Math.floor(Math.random() * chordNotes.length)];
-            sequence.push({ time: `${bar}:1:2`, type: "piano", notes: [mNote], dur: "4n" });
-          }
-
-          // 節奏
-          if (config.hasDrums) {
-            sequence.push({ time: `${bar}:0:0`, type: "kick" });
-            sequence.push({ time: `${bar}:1:0`, type: "snare" });
-            sequence.push({ time: `${bar}:2:1`, type: "kick" });
-            sequence.push({ time: `${bar}:3:0`, type: "snare" });
-          }
+      for (let bar = 0; bar < 16; bar++) {
+        if (bar % 2 === 0 || info.density > 0.6) {
+          sequence.push({ time: `${bar}:0:0`, type: "kick" });
+          sequence.push({ time: `${bar}:2:0`, type: "kick" });
         }
-      } else {
-        // --- Jazz 模式 (保留原本骨架) ---
-        const scale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3"];
-        for (let bar = 0; bar < 8; bar++) {
-          sequence.push({ time: `${bar}:0:0`, type: "bass", notes: [scale[bar % scale.length]] });
-          if (bar % 2 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: ["C4", "Eb4", "G4"], dur: "2n" });
+        sequence.push({ time: `${bar}:1:0`, type: "snare" });
+        sequence.push({ time: `${bar}:3:0`, type: "snare" });
+
+        if (musicMode === 'jazz') {
+          for (let beat = 0; beat < 4; beat++) {
+            if (Math.random() < info.density + 0.2) {
+              const note = jazzScale[(f.seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
+              sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
+            }
+          }
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
+        } else {
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
+          const guitarDensity = info.density;
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(f.seed + bar) % scale.length] });
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(f.seed + bar + 3) % scale.length] });
+          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(f.seed + bar + 5) % scale.length] });
         }
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.notes[0], "4n", time, 0.4);
-        if (v.type === "piano" && synths.piano.loaded) {
-          // 加上隨機音高偏移 (Wow Effect)
-          const offset = (Math.random() - 0.5) * config.flutter;
-          synths.piano.triggerAttackRelease(v.notes, v.dur, time, 0.5);
-        }
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
+        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
       }, sequence).start(0);
 
-      Tone.Transport.loop = true; Tone.Transport.loopEnd = "8m";
+      Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
       stopBtn.disabled = false; playBtn.disabled = true;
     });
     
-    stopBtn.addEventListener('click', () => { Tone.Transport.stop(); playBtn.disabled = false; stopBtn.disabled = true; });
-    lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
-    jazzModeBtn.addEventListener('click', () => { musicMode = 'jazz'; jazzModeBtn.classList.add('active'); lofiModeBtn.classList.remove('active'); });
+    stopBtn.addEventListener('click', () => { 
+      Tone.Transport.stop(); 
+      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
+      playBtn.disabled = false; 
+      stopBtn.disabled = true; 
+    });
+    
   </script>
 </body>
 </html>
