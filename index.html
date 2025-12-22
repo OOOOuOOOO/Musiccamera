@@ -48,7 +48,6 @@
       box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 1px 1px #fff; color: #fff; text-align: center;
     }
 
-    /* 新增：風格切換按鈕樣式 */
     .mode-switch-group {
       display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;
     }
@@ -75,6 +74,18 @@
     }
     .sub-btn:enabled { color: #fff; }
 
+    /* 錄影按鈕特殊樣式 */
+    #recBtn.recording {
+      background: #b30000;
+      color: #fff;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+
     .analysis-text {
       font-family: 'Noto Serif TC', serif; font-size: 16px; color: #fff;
       margin: 15px 0 5px; min-height: 24px; line-height: 1.6; letter-spacing: 2px;
@@ -90,7 +101,6 @@
       background: #000; border-radius: 5px; box-shadow: 0 1px 1px #fff;
     }
 
-    /* 拍立得照片與日期樣式 */
     .polaroid-film {
       width: 220px; background: #fff; padding: 10px 10px 45px 10px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute;
@@ -145,6 +155,8 @@
     .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
     .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer;}
 
+    /* 隱藏錄製用的 Canvas */
+    #recordCanvas { display: none; }
     #canvas { display: none; }
   </style>
 </head>
@@ -167,6 +179,7 @@
       <div class="sub-btn-group">
         <button class="sub-btn" id="playBtn" disabled>PLAY</button>
         <button class="sub-btn" id="stopBtn" disabled>STOP</button>
+        <button class="sub-btn" id="recBtn" disabled>REC / SAVE</button>
       </div>
       <div class="analysis-text" id="analysisText">每個回憶，都是一段獨一無二的旋律</div>
     </div>
@@ -191,6 +204,7 @@
   
   <input type="file" id="fileInput" accept="image/*" style="display:none;">
   <canvas id="canvas"></canvas>
+  <canvas id="recordCanvas"></canvas>
   <audio id="shutterSfx" src="polaroid-shutter.mp3"></audio>
 
   <script>
@@ -206,15 +220,17 @@
     const analysisText = document.getElementById('analysisText');
     const playBtn = document.getElementById('playBtn');
     const stopBtn = document.getElementById('stopBtn');
+    const recBtn = document.getElementById('recBtn');
     const filmDate = document.getElementById('filmDate');
     const shutterSfx = document.getElementById('shutterSfx');
     const canvas = document.getElementById('canvas');
+    const recordCanvas = document.getElementById('recordCanvas');
     const lofiModeBtn = document.getElementById('lofiModeBtn');
     const jazzModeBtn = document.getElementById('jazzModeBtn');
 
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
+    let mediaRecorder, recordedChunks = [];
 
-    // 12個語意標籤矩陣：定義音樂參數
     const tagMatrix = {
       'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.9, reverb: 0.2 },
       'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -5, density: 0.4, reverb: 0.8 },
@@ -271,12 +287,11 @@
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
-        // 模擬 AI 分析邏輯（維持後台運算，但不顯示標籤內容）
         const tags = Object.keys(tagMatrix);
         let tagIndex = (r + g + b) % tags.length;
-        if (bri > 200) tagIndex = 2; // Bright
-        if (bri < 50) tagIndex = 8;  // Mysterious
-        if (b > r + 50) tagIndex = 9; // Melancholy
+        if (bri > 200) tagIndex = 2; 
+        if (bri < 50) tagIndex = 8;  
+        if (b > r + 50) tagIndex = 9; 
         
         const selectedTag = tags[tagIndex];
         currentFeatures = { 
@@ -287,7 +302,6 @@
           bpm: 90 + tagMatrix[selectedTag].bpmAdd
         };
 
-        // 核心修正：文字始終固定
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
@@ -304,6 +318,7 @@
       shutterSfx.currentTime = 0; shutterSfx.play().catch(()=>{});
       setTimeout(() => { preview.classList.add('develop'); filmDate.classList.add('show'); }, 100);
       playBtn.disabled = false;
+      recBtn.disabled = false;
     }
 
     async function initAudio() {
@@ -313,7 +328,6 @@
       synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
 
-      // --- 黑膠雜音合成器：降低頻率讓聲音更溫和 ---
       synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(800, "lowpass").toDestination());
       synths.noise.volume.value = -Infinity; 
       synths.noise.start();
@@ -343,7 +357,6 @@
       Tone.Transport.bpm.value = f.bpm;
       synths.reverb.wet.value = info.reverb; 
 
-      // 同步進入 + 音量調小修正
       if (musicMode === 'lofi') {
         const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -30 : -40;
         synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
@@ -401,6 +414,81 @@
       playBtn.disabled = false; 
       stopBtn.disabled = true; 
     });
+
+    // --- 新增：影片錄製功能 ---
+
+    recBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        recBtn.classList.remove('recording');
+        recBtn.innerText = "REC / SAVE";
+      } else {
+        startRecording();
+      }
+    });
+
+    async function startRecording() {
+      await initAudio(); // 確保 Audio 已初始化
+      recordedChunks = [];
+      
+      // 1. 準備錄影用的 Canvas (將拍立得渲染到 Canvas 上)
+      recordCanvas.width = 400; 
+      recordCanvas.height = 500;
+      const rCtx = recordCanvas.getContext('2d');
+
+      // 持續更新 Canvas 的渲染循環
+      function updateCanvas() {
+        if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+        
+        // 繪製背景
+        rCtx.fillStyle = "#fff";
+        rCtx.fillRect(0, 0, 400, 500);
+        
+        // 繪製相片 (從已產生的 preview 圖片中抓取)
+        rCtx.drawImage(preview, 20, 20, 360, 360);
+        
+        // 繪製日期
+        rCtx.font = "24px 'Nanum Pen Script'";
+        rCtx.fillStyle = "#444";
+        rCtx.fillText(filmDate.innerText, 280, 460);
+        
+        requestAnimationFrame(updateCanvas);
+      }
+
+      // 2. 獲取音軌與畫面軌
+      const canvasStream = recordCanvas.captureStream(30); // 30 FPS
+      const audioDest = Tone.getContext().rawContext.createMediaStreamDestination();
+      Tone.getDestination().connect(audioDest);
+      
+      const combinedStream = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...audioDest.stream.getAudioTracks()
+      ]);
+
+      // 3. 啟動 MediaRecorder
+      mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' });
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Memory_${Date.now()}.webm`;
+        a.click();
+      };
+
+      mediaRecorder.start();
+      recBtn.classList.add('recording');
+      recBtn.innerText = "STOP & SAVE";
+      updateCanvas();
+      
+      // 如果音樂沒在播，幫使用者播放
+      if (Tone.Transport.state !== "started") playBtn.click();
+    }
     
   </script>
 </body>
