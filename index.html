@@ -241,165 +241,113 @@
       }
     });
 
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        videoPreview.srcObject = stream;
-        cameraOverlay.style.display = 'flex';
-      } catch (e) { fileInput.click(); }
-    }
-    function stopCamera() {
-      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-      cameraOverlay.style.display = 'none';
-    }
-    openCamBtn.addEventListener('click', startCamera);
-    closeOverlay.addEventListener('click', stopCamera);
-    albumBtn.addEventListener('click', () => fileInput.click());
+    // --- 僅需置換 script 內的 initAudio 與 playBtn 邏輯 ---
 
-    snapBtn.addEventListener('click', () => {
-      const ctx = canvas.getContext('2d');
-      canvas.width = videoPreview.videoWidth;
-      canvas.height = videoPreview.videoHeight;
-      ctx.drawImage(videoPreview, 0, 0);
-      preview.src = canvas.toDataURL('image/jpeg');
-      stopCamera();
-      analyzePhoto();
-    });
+async function initAudio() {
+  if (audioInited) return;
+  await Tone.start();
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => { preview.src = ev.target.result; stopCamera(); analyzePhoto(); };
-      reader.readAsDataURL(file);
-    });
+  const filter = new Tone.Filter(1000, "lowpass").toDestination();
+  const reverb = new Tone.Reverb({ decay: 5, wet: 0.4 }).connect(filter);
 
-    function analyzePhoto() {
-      preview.onload = () => {
-        const ctx = canvas.getContext('2d');
-        canvas.width = 10; canvas.height = 10;
-        ctx.drawImage(preview, 0, 0, 10, 10);
-        const data = ctx.getImageData(0, 0, 10, 10).data;
-        let r=0, g=0, b=0, bri=0;
-        for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
-        
-        currentFeatures = { 
-          mode: (bri/100) > 125 ? 'Major' : 'Minor',
-          brightness: (bri/100) / 255,
-          bpm: 80 + Math.floor(((bri/100)/255) * 12)
-        };
+  // 1. 鋼琴 (通用)
+  synths.piano = new Tone.Sampler({
+    urls: { A1: "A1.mp3", C4: "C4.mp3" },
+    baseUrl: "https://tonejs.github.io/audio/salamander/",
+  }).connect(reverb);
 
-        analysisText.innerHTML = `讓音樂完整回憶`;
-        triggerEject();
-      };
-    }
+  // 2. Lo-fi 專用：清脆吉他
+  synths.guitar = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: "triangle" },
+    envelope: { attack: 0.03, decay: 1.2, sustain: 0.1, release: 1.5 }
+  }).connect(reverb);
 
-    function triggerEject() {
-      const now = new Date();
-      const dateString = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-      filmDate.innerText = dateString;
-      filmDate.classList.remove('show');
-      polaroidFrame.classList.remove('eject');
-      void polaroidFrame.offsetWidth;
-      polaroidFrame.classList.add('eject');
-      preview.classList.remove('develop');
-      shutterSfx.currentTime = 0; shutterSfx.play();
-      setTimeout(() => { preview.classList.add('develop'); filmDate.classList.add('show'); }, 100);
-      playBtn.disabled = false;
-    }
+  // 3. Jazz 專用：次中音薩克斯風 (Saxophone) 
+  // 使用具備豐富諧波的鋸齒波，加上顫音 (Vibrato) 模擬吹奏感
+  synths.sax = new Tone.MonoSynth({
+    oscillator: { type: "sawtooth8" }, // 豐富的層次感
+    filter: { Q: 2, type: "lowpass", rolloff: -24 },
+    envelope: { attack: 0.1, decay: 0.3, sustain: 0.8, release: 1.2 },
+    filterEnvelope: { attack: 0.2, baseFrequency: 300, octaves: 2, exponent: 2 }
+  }).connect(reverb);
+  
+  // 增加薩克斯風的顫音效果
+  const saxLFO = new Tone.LFO("5hz", -10, 10).connect(synths.sax.oscillator.detune).start();
 
-    async function initAudio() {
-      if (audioInited) return;
-      await Tone.start();
+  synths.kick = new Tone.MembraneSynth({ volume: -18 }).connect(filter);
+  synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
+  
+  audioInited = true;
+}
 
-      const filter = new Tone.Filter(1000, "lowpass").toDestination();
-      const reverb = new Tone.Reverb({ decay: 5, wet: 0.4 }).connect(filter);
-      const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
+playBtn.addEventListener('click', async () => {
+  await initAudio();
+  Tone.Transport.stop();
+  Tone.Transport.cancel();
+  
+  const f = currentFeatures;
+  const isJazz = styleToggle.checked;
+  
+  // 差距化設定
+  Tone.Transport.bpm.value = isJazz ? 72 : f.bpm; // Jazz 顯著變慢，變慵懶
 
-      // 黑膠雜音
-      const vinylNoise = new Tone.Noise("pink").start();
-      vinylNoise.volume.value = -45;
-      vinylNoise.connect(new Tone.Filter(1000, "bandpass").toDestination());
+  const sequence = [];
+  for (let bar = 0; bar < 8; bar++) {
+    // 鼓組
+    sequence.push({ time: `${bar}:0:0`, type: "kick" });
+    sequence.push({ time: `${bar}:2:0`, type: "kick" });
+    sequence.push({ time: `${bar}:1:0`, type: "snare" });
+    sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
-      // 鋼琴
-      synths.piano = new Tone.Sampler({
-        urls: { A1: "A1.mp3", C4: "C4.mp3" },
-        baseUrl: "https://tonejs.github.io/audio/salamander/",
-      }).connect(reverb);
-      synths.piano.volume.value = -8;
-
-      // 物理建模吉他
-      synths.guitar = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.03, decay: 1.2, sustain: 0.1, release: 1.5 }
-      }).connect(chorus);
-      synths.guitar.volume.value = -14; 
-      
-      synths.kick = new Tone.MembraneSynth({ volume: -18 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
-      
-      audioInited = true;
-    }
-
-    playBtn.addEventListener('click', async () => {
-      await initAudio();
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
-      
-      const f = currentFeatures;
-      const isJazz = styleToggle.checked;
-      
-      // 爵士樂通常節奏稍微慢一點點，更有慵懶感
-      Tone.Transport.bpm.value = isJazz ? f.bpm * 0.9 : f.bpm;
-
-      // 音階與和弦定義
-      // Lo-fi 用純五聲音階，Jazz 用帶有 Maj7/9 的和弦音
-      const scale = isJazz 
-        ? (f.mode === 'Major' ? ["C3", "E3", "G3", "B3", "D4"] : ["A2", "C3", "E3", "G3", "B3"]) 
-        : (f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"]);
-
-      const sequence = [];
-      for (let bar = 0; bar < 8; bar++) {
-        // 鼓組：Jazz 會在反拍多一點點點綴
-        sequence.push({ time: `${bar}:0:0`, type: "kick" });
-        sequence.push({ time: `${bar}:2:0`, type: "kick" });
-        sequence.push({ time: `${bar}:1:0`, type: "snare" });
-        sequence.push({ time: `${bar}:3:0`, type: "snare" });
-        if(isJazz && Math.random() > 0.5) sequence.push({ time: `${bar}:3:2`, type: "kick" });
-
-        // 鋼琴和弦：Jazz 使用更飽滿的和弦音
-        if (bar % 2 === 0) {
-          const notes = isJazz ? [scale[0], scale[1], scale[2], scale[3]] : [scale[0], scale[2]];
-          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: notes });
-        }
-
-        // 吉他旋律律動
-        if(isJazz) {
-          // Jazz Swing 律動 (稍微延遲的點綴)
-          sequence.push({ time: `${bar}:0:2.5`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-          sequence.push({ time: `${bar}:1:1.5`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-          sequence.push({ time: `${bar}:2:2.5`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        } else {
-          // Lo-fi 原本的切分音節奏
-          sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-          sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-          sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        }
+    if (isJazz) {
+      // --- Jazz 模式邏輯 ---
+      // 鋼琴彈奏「高級九和弦」
+      if (bar % 2 === 0) {
+        sequence.push({ 
+          time: `${bar}:0:0`, 
+          type: "piano", 
+          notes: ["C3", "E3", "G3", "B3", "D4"] // 豐富的和聲
+        });
       }
+      // 薩克斯風吹奏「慵懶長音」與「即興裝飾」
+      const saxScale = ["G4", "A4", "Bb4", "B4", "D5", "E5"]; // 帶有藍調味的音階
+      sequence.push({ 
+        time: `${bar}:0:2`, 
+        type: "sax", 
+        note: saxScale[Math.floor(Math.random()*saxScale.length)],
+        dur: "1n" // 長音
+      });
+      if(Math.random() > 0.6) {
+        sequence.push({ time: `${bar}:2:3`, type: "sax", note: saxScale[0], dur: "8n" });
+      }
+    } else {
+      // --- Lo-fi 模式邏輯 ---
+      const lofiScale = ["C4", "D4", "E4", "G4", "A4"];
+      if (bar % 2 === 0) {
+        sequence.push({ time: `${bar}:0:0`, type: "piano", notes: ["C4", "G4"] });
+      }
+      sequence.push({ time: `${bar}:0:2`, type: "guitar", note: lofiScale[Math.floor(Math.random()*lofiScale.length)] });
+      sequence.push({ time: `${bar}:1:2`, type: "guitar", note: lofiScale[Math.floor(Math.random()*lofiScale.length)] });
+      sequence.push({ time: `${bar}:2:1`, type: "guitar", note: lofiScale[Math.floor(Math.random()*lofiScale.length)] });
+    }
+  }
 
-      new Tone.Part((time, v) => {
-        if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
-        if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.3);
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
-      }, sequence).start(0);
+  new Tone.Part((time, v) => {
+    if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
+    if (v.type === "snare") synths.snare.triggerAttack(time);
+    if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.2);
+    
+    // 樂器分流
+    if (v.type === "sax") synths.sax.triggerAttackRelease(v.note, v.dur, time, 0.4);
+    if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
+  }, sequence).start(0);
 
-      Tone.Transport.loop = true;
-      Tone.Transport.loopEnd = "8m";
-      Tone.Transport.start("+0.1");
-      stopBtn.disabled = false;
-      playBtn.disabled = true;
-    });
+  Tone.Transport.loop = true;
+  Tone.Transport.loopEnd = "8m";
+  Tone.Transport.start("+0.1");
+  stopBtn.disabled = false;
+  playBtn.disabled = true;
+});
     
     stopBtn.addEventListener('click', () => {
       Tone.Transport.stop();
