@@ -428,67 +428,73 @@
     });
 
     async function startRecording() {
-      await initAudio(); // 確保 Audio 已初始化
-      recordedChunks = [];
-      
-      // 1. 準備錄影用的 Canvas (將拍立得渲染到 Canvas 上)
-      recordCanvas.width = 400; 
-      recordCanvas.height = 500;
-      const rCtx = recordCanvas.getContext('2d');
+  await initAudio();
+  recordedChunks = [];
+  
+  // 1. 自動偵測手機支援的格式
+  const types = [
+    "video/mp4", // iOS 支援度較高
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm"
+  ];
+  let supportedType = types.find(type => MediaRecorder.isTypeSupported(type));
 
-      // 持續更新 Canvas 的渲染循環
-      function updateCanvas() {
-        if (!mediaRecorder || mediaRecorder.state !== "recording") return;
-        
-        // 繪製背景
-        rCtx.fillStyle = "#fff";
-        rCtx.fillRect(0, 0, 400, 500);
-        
-        // 繪製相片 (從已產生的 preview 圖片中抓取)
-        rCtx.drawImage(preview, 20, 20, 360, 360);
-        
-        // 繪製日期
-        rCtx.font = "24px 'Nanum Pen Script'";
-        rCtx.fillStyle = "#444";
-        rCtx.fillText(filmDate.innerText, 280, 460);
-        
-        requestAnimationFrame(updateCanvas);
-      }
+  if (!supportedType) {
+    alert("抱歉，您的手機瀏覽器不支援錄影功能。建議使用內建螢幕錄影。");
+    return;
+  }
 
-      // 2. 獲取音軌與畫面軌
-      const canvasStream = recordCanvas.captureStream(30); // 30 FPS
-      const audioDest = Tone.getContext().rawContext.createMediaStreamDestination();
-      Tone.getDestination().connect(audioDest);
-      
-      const combinedStream = new MediaStream([
-        ...canvasStream.getVideoTracks(),
-        ...audioDest.stream.getAudioTracks()
-      ]);
+  recordCanvas.width = 400; 
+  recordCanvas.height = 500;
+  const rCtx = recordCanvas.getContext('2d');
 
-      // 3. 啟動 MediaRecorder
-      mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp8,opus' });
-      
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunks.push(e.data);
-      };
+  function updateCanvas() {
+    if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+    rCtx.fillStyle = "#fff";
+    rCtx.fillRect(0, 0, 400, 500);
+    rCtx.drawImage(preview, 20, 20, 360, 360);
+    rCtx.font = "24px 'Nanum Pen Script'";
+    rCtx.fillStyle = "#444";
+    rCtx.fillText(filmDate.innerText, 280, 460);
+    requestAnimationFrame(updateCanvas);
+  }
 
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: "video/webm" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Memory_${Date.now()}.webm`;
-        a.click();
-      };
+  // 2. 獲取流
+  const canvasStream = recordCanvas.captureStream(30);
+  const audioDest = Tone.getContext().rawContext.createMediaStreamDestination();
+  Tone.getDestination().connect(audioDest);
+  
+  const combinedStream = new MediaStream([
+    ...canvasStream.getVideoTracks(),
+    ...audioDest.stream.getAudioTracks()
+  ]);
 
-      mediaRecorder.start();
-      recBtn.classList.add('recording');
-      recBtn.innerText = "STOP & SAVE";
-      updateCanvas();
-      
-      // 如果音樂沒在播，幫使用者播放
-      if (Tone.Transport.state !== "started") playBtn.click();
-    }
+  // 3. 啟動 (加上 bitsPerSecond 確保手機不會卡頓)
+  mediaRecorder = new MediaRecorder(combinedStream, { 
+    mimeType: supportedType,
+    videoBitsPerSecond : 2500000 
+  });
+  
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: supportedType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Memory_${Date.now()}.${supportedType.includes('mp4') ? 'mp4' : 'webm'}`;
+    a.click();
+  };
+
+  mediaRecorder.start();
+  recBtn.classList.add('recording');
+  recBtn.innerText = "STOP & SAVE";
+  updateCanvas();
+  if (Tone.Transport.state !== "started") playBtn.click();
+}
     
   </script>
 </body>
