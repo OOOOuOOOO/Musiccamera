@@ -306,16 +306,16 @@
       playBtn.disabled = false;
     }
 
-    async function initAudio() {
+   async function initAudio() {
       if (audioInited) return;
       await Tone.start();
       const filter = new Tone.Filter(1200, "lowpass").toDestination();
       synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
 
-      // --- 加入黑膠雜音合成器 ---
-      synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(1000, "lowpass").toDestination());
-      synths.noise.volume.value = -Infinity; // 預設靜音
+      // --- 加入黑膠雜音合成器：降低頻率讓聲音更溫和 ---
+      synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(800, "lowpass").toDestination());
+      synths.noise.volume.value = -Infinity; 
       synths.noise.start();
 
       synths.piano = new Tone.Sampler({
@@ -329,8 +329,8 @@
       }).connect(chorus);
 
       synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
-      synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
+      synths.kick = new Tone.MembraneSynth({ volume: -29 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -42 }).connect(filter);
       audioInited = true;
     }
 
@@ -338,20 +338,13 @@
       await initAudio();
       Tone.Transport.stop(); Tone.Transport.cancel();
       
-      const f = currentFeatures;
-      const info = f.tagInfo;
-      Tone.Transport.bpm.value = f.bpm;
-      synths.reverb.wet.value = info.reverb; 
-
-      // 根據標籤決定黑膠雜音量 (懷舊、靜止、憂鬱時雜音較大)
+      // 根據標籤決定黑膠雜音量 (大幅調低音量，並延遲啟動以同步音樂)
       if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -28 : -45;
-        synths.noise.volume.rampTo(noiseLevel, 2); 
+        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -35 : -50;
+        synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
       } else {
-        synths.noise.volume.rampTo(-Infinity, 1); // Jazz 模式暫時關閉黑膠
+        synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
       }
-
-      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
       const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
 
       Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
