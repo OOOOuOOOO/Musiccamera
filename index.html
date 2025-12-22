@@ -271,7 +271,7 @@
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
-        // 模擬 AI 分析邏輯
+        // 模擬 AI 分析邏輯（維持後台運算，但不顯示標籤內容）
         const tags = Object.keys(tagMatrix);
         let tagIndex = (r + g + b) % tags.length;
         if (bri > 200) tagIndex = 2; // Bright
@@ -287,12 +287,12 @@
           bpm: 90 + tagMatrix[selectedTag].bpmAdd
         };
 
-        // 保留您的原始標語，並加上 AI 聯想
-        analysisText.innerHTML = `讓音樂完整回憶：${currentFeatures.tagInfo.text}`;
+        // 核心修正：文字始終固定，讓使用者感受音樂的隨機與獨特，而非標籤的定義
+        analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
     }
-
+    
     function triggerEject() {
       const now = new Date();
       filmDate.innerText = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
