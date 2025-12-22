@@ -74,6 +74,7 @@
     }
     .sub-btn:enabled { color: #fff; }
 
+    /* 錄影按鈕特殊樣式 */
     #recBtn.recording {
       background: #b30000;
       color: #fff;
@@ -154,6 +155,7 @@
     .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
     .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer;}
 
+    /* 隱藏錄製用的 Canvas */
     #recordCanvas { display: none; }
     #canvas { display: none; }
   </style>
@@ -228,21 +230,21 @@
 
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
     let mediaRecorder, recordedChunks = [];
-    let activePart = null;
+    let activePart = null; // 用於儲存當前播放的軌道
 
     const tagMatrix = {
-      'Energetic': { bpmAdd: 15, density: 0.9, reverb: 0.2 },
-      'Dreamy': { bpmAdd: -5, density: 0.4, reverb: 0.8 },
-      'Bright': { bpmAdd: 5, density: 0.7, reverb: 0.3 },
-      'Calm': { bpmAdd: -10, density: 0.3, reverb: 0.5 },
-      'Cozy': { bpmAdd: -2, density: 0.5, reverb: 0.4 },
-      'Nostalgic': { bpmAdd: -8, density: 0.4, reverb: 0.6 },
-      'Urban': { bpmAdd: 10, density: 0.8, reverb: 0.3 },
-      'Tense': { bpmAdd: 12, density: 0.9, reverb: 0.4 },
-      'Mysterious': { bpmAdd: -4, density: 0.5, reverb: 0.7 },
-      'Melancholy': { bpmAdd: -12, density: 0.3, reverb: 0.7 },
-      'Lonely': { bpmAdd: -15, density: 0.2, reverb: 0.9 },
-      'Static': { bpmAdd: -20, density: 0.1, reverb: 0.8 }
+      'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.9, reverb: 0.2 },
+      'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -5, density: 0.4, reverb: 0.8 },
+      'Bright': { text: "捕捉光芒的瞬間", bpmAdd: 5, density: 0.7, reverb: 0.3 },
+      'Calm': { text: "呼吸間的寧靜", bpmAdd: -10, density: 0.3, reverb: 0.5 },
+      'Cozy': { text: "暖色調的午後", bpmAdd: -2, density: 0.5, reverb: 0.4 },
+      'Nostalgic': { text: "泛黃的舊時光", bpmAdd: -8, density: 0.4, reverb: 0.6 },
+      'Urban': { text: "都市霓虹的閃爍", bpmAdd: 10, density: 0.8, reverb: 0.3 },
+      'Tense': { text: "緊繃的視覺張力", bpmAdd: 12, density: 0.9, reverb: 0.4 },
+      'Mysterious': { text: "深邃神祕的暗影", bpmAdd: -4, density: 0.5, reverb: 0.7 },
+      'Melancholy': { text: "雨後的憂鬱藍調", bpmAdd: -12, density: 0.3, reverb: 0.7 },
+      'Lonely': { text: "看見一抹寂靜", bpmAdd: -15, density: 0.2, reverb: 0.9 },
+      'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.1, reverb: 0.8 }
     };
 
     lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
@@ -350,33 +352,42 @@
     playBtn.addEventListener('click', async () => {
       await initAudio();
       
-      // 1. 重置所有狀態確保發聲
-      Tone.Transport.stop();
+      // 修復：每次播放前重置 Transport 與音量
+      Tone.Transport.stop(); 
       Tone.Transport.cancel();
       if(activePart) { activePart.dispose(); activePart = null; }
-      
-      // 重要：恢復所有合成器音量（避免 Stop 後沒聲音）
-      synths.piano.volume.value = 0;
-      synths.bass.volume.value = 0;
-      synths.kick.volume.value = -10;
-      synths.snare.volume.value = -15;
 
+      // 恢復各樂器音量（避免 Stop 後沒聲音）
+      synths.piano.volume.value = 0;
+      synths.guitar.volume.value = 0;
+      synths.bass.volume.value = 0;
+      synths.kick.volume.value = -25;
+      synths.snare.volume.value = -38;
+      
       const f = currentFeatures;
+      const info = f.tagInfo;
       const seed = f.seed;
       Tone.Transport.bpm.value = f.bpm;
-      const info = f.tagInfo;
+      synths.reverb.wet.value = info.reverb; 
 
       if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static') ? -30 : -42;
-        synths.noise.volume.rampTo(noiseLevel, 1);
-        synths.reverb.wet.value = 0.5;
+        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -30 : -40;
+        synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
       } else {
-        synths.noise.volume.rampTo(-Infinity, 1);
-        synths.reverb.wet.value = 0.25;
+        synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
       }
 
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4", "C5"] : ["A3", "C4", "D4", "E4", "G4", "A4"];
       const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
+
+      // StreetVoice Lo-fi 配方集
+      const lofiMotifs = [
+        { intervals: [0, 2, 4, 7], rhythm: ["4n", "8n", "8n", "4n"], chance: 0.8 },
+        { intervals: [0, 4, 7, 12], rhythm: ["2n", "2n"], chance: 0.6 },
+        { intervals: [7, 5, 4, 2], rhythm: ["8n", "8n", "8n", "8n", "4n"], chance: 0.7 }
+      ];
+
+      Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
       const sequence = [];
 
       for (let bar = 0; bar < 16; bar++) {
@@ -389,36 +400,41 @@
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
         if (musicMode === 'jazz') {
-          // --- 經典 Jazz 邏輯 ---
-          Tone.Transport.swing = 0.45;
+          // --- 原始 JAZZ 邏輯 ---
           for (let beat = 0; beat < 4; beat++) {
-            if (Math.random() < 0.7) {
-              const note = jazzScale[(seed + bar + beat) % 7].replace('4','2').replace('3','2');
+            if (Math.random() < info.density + 0.2) {
+              const note = jazzScale[(f.seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
               sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
             }
           }
           if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
         } else {
-          // --- Lo-Fi 旋律優化 (片段式旋律) ---
-          Tone.Transport.swing = 0;
-          const root = (f.mode === 'Major' ? "C2" : "A1");
-          sequence.push({ time: `${bar}:0:0`, type: "bass", note: root });
+          // --- 進化版 LO-FI 編曲邏輯 ---
+          // A. 和弦基底 (Pads) - 提供溫暖包裹感
+          if (bar % 4 === 0) {
+            const chord = f.mode === 'Major' ? ["C3", "E3", "G3", "B3"] : ["A2", "C3", "E3", "G3"];
+            sequence.push({ time: `${bar}:0:0`, type: "piano", notes: chord, dur: "1n" });
+          }
 
-          // 構建旋律片段
-          const melodyMotif = (seed + bar) % 4;
-          if (melodyMotif === 0) {
-             sequence.push({ time: `${bar}:0:2`, type: "piano", note: scale[0], dur: "4n" });
-             sequence.push({ time: `${bar}:1:1`, type: "piano", note: scale[2], dur: "8n" });
-             sequence.push({ time: `${bar}:1:3`, type: "piano", note: scale[4], dur: "8n" });
-          } else if (melodyMotif === 1) {
-             sequence.push({ time: `${bar}:0:0`, type: "piano", note: scale[1], dur: "2n" });
-             sequence.push({ time: `${bar}:2:2`, type: "piano", note: scale[3], dur: "4n" });
-          } else if (melodyMotif === 2) {
-             for(let i=0; i<4; i++) {
-               sequence.push({ time: `${bar}:${i}:2`, type: "piano", note: scale[(seed+i)%6], dur: "8n" });
-             }
-          } else {
-             sequence.push({ time: `${bar}:0:0`, type: "piano", note: scale[5], dur: "1n" });
+          // B. 靈魂旋律片段 (StreetVoice 風格)
+          const motif = lofiMotifs[(seed + bar) % lofiMotifs.length];
+          motif.rhythm.forEach((dur, i) => {
+            if (Math.random() < motif.chance) {
+              const note = scale[motif.intervals[i % motif.intervals.length] % scale.length];
+              // 加入微小的時間偏移讓律動更鬆
+              const microOffset = (seed % 10) / 100;
+              sequence.push({ 
+                time: `${bar}:${i}:${microOffset}`, 
+                type: "guitar", 
+                note: note, 
+                dur: dur 
+              });
+            }
+          });
+
+          // C. 貝斯線
+          if (bar % 2 === 0) {
+            sequence.push({ time: `${bar}:0:0`, type: "bass", note: f.mode === 'Major' ? "C2" : "A1" });
           }
         }
       }
@@ -426,10 +442,9 @@
       activePart = new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "2n", time, 0.4);
-        if (v.type === "piano" && synths.piano.loaded) {
-          synths.piano.triggerAttackRelease(v.notes || v.note, v.dur || "1n", time, 0.4);
-        }
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
+        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, v.dur || "1n", time, 0.35);
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, v.dur || "2n", time, 0.3);
       }, sequence).start(0);
 
       Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
@@ -439,16 +454,17 @@
     
     stopBtn.addEventListener('click', () => { 
       Tone.Transport.stop(); 
-      Tone.Transport.cancel(); 
+      Tone.Transport.cancel();
       if(activePart) { activePart.dispose(); activePart = null; }
       
-      // 停止所有發聲
+      // 停止所有發聲並暫時將音量設為極小
       Object.values(synths).forEach(s => {
+        if(s.volume) s.volume.value = -Infinity;
         if(s.releaseAll) s.releaseAll();
-        if(s.volume) s.volume.value = -Infinity; // 先切斷，Play時會恢復
       });
-      
-      playBtn.disabled = false; stopBtn.disabled = true; 
+
+      playBtn.disabled = false; 
+      stopBtn.disabled = true; 
     });
 
     recBtn.addEventListener('click', () => {
@@ -466,21 +482,38 @@
       recordedChunks = [];
       const types = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
       let supportedType = types.find(type => MediaRecorder.isTypeSupported(type));
-      if (!supportedType) { alert("不支援錄影"); return; }
 
-      recordCanvas.width = 400; recordCanvas.height = 500;
+      if (!supportedType) {
+        alert("您的瀏覽器不支援錄影功能。");
+        return;
+      }
+
+      recordCanvas.width = 400; 
+      recordCanvas.height = 500;
       const rCtx = recordCanvas.getContext('2d');
 
       function updateCanvas() {
         if (!mediaRecorder || mediaRecorder.state !== "recording") return;
         rCtx.fillStyle = "#fff";
         rCtx.fillRect(0, 0, 400, 500);
-        if (preview.complete) {
-          const sw = preview.naturalWidth, sh = preview.naturalHeight;
-          const min = Math.min(sw, sh);
-          rCtx.drawImage(preview, (sw-min)/2, (sh-min)/2, min, min, 20, 20, 360, 360);
+        const img = preview;
+        const targetSize = 360; 
+        const targetX = 20;     
+        const targetY = 20;
+
+        if (img.complete && img.naturalWidth > 0) {
+          const sw = img.naturalWidth;
+          const sh = img.naturalHeight;
+          const minSide = Math.min(sw, sh);
+          const sx = (sw - minSide) / 2;
+          const sy = (sh - minSide) / 2;
+          rCtx.drawImage(img, sx, sy, minSide, minSide, targetX, targetY, targetSize, targetSize);
+        } else {
+          rCtx.fillStyle = "#222";
+          rCtx.fillRect(targetX, targetY, targetSize, targetSize);
         }
-        rCtx.font = "24px 'Nanum Pen Script'"; rCtx.fillStyle = "#444";
+        rCtx.font = "24px 'Nanum Pen Script'";
+        rCtx.fillStyle = "#444";
         rCtx.fillText(filmDate.innerText, 280, 460);
         requestAnimationFrame(updateCanvas);
       }
@@ -490,13 +523,19 @@
       Tone.getDestination().connect(audioDest);
       const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()]);
 
-      mediaRecorder = new MediaRecorder(combinedStream, { mimeType: supportedType });
+      mediaRecorder = new MediaRecorder(combinedStream, { 
+        mimeType: supportedType,
+        videoBitsPerSecond : 2500000 
+      });
+      
       mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
       mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: supportedType });
+        const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `Memory_${Date.now()}.mp4`; a.click();
+        a.href = url;
+        a.download = `Memory_${Date.now()}.${supportedType.includes('mp4') ? 'mp4' : 'webm'}`;
+        a.click();
       };
 
       mediaRecorder.start();
