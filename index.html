@@ -281,42 +281,52 @@
     }
 
     async function initAudio() {
-  if (audioInited) return;
-  await Tone.start();
+      if (audioInited) return;
+      await Tone.start();
 
-  // 1. 建立 Lo-Fi 核心濾鏡
-  const filter = new Tone.Filter(1300, "lowpass").toDestination();
-  reverb = new Tone.Reverb({ 
-    decay: 4 + (currentFeatures.complexity * 4), 
-    wet: 0.2 + (currentFeatures.complexity * 0.3) 
-  }).connect(filter);
+      // 1. 建立核心濾鏡與空間感
+      const filter = new Tone.Filter(1300, "lowpass").toDestination();
+      reverb = new Tone.Reverb({ 
+        decay: 5, 
+        wet: 0.3 
+      }).connect(filter);
 
-  // 2. 新增：黑膠唱片雜音產生器 (Vinyl Crackle)
-  // 使用 Noise 產生基礎雜訊，並用極低的音量 (-45) 確保不吵雜
-  const vinylNoise = new Tone.Noise("pink").start();
-  const vinylFilter = new Tone.Filter(1000, "bandpass").toDestination();
-  vinylNoise.volume.value = -35; // 控制雜音音量，-45 是很細微的背景聲
-  vinylNoise.connect(vinylFilter);
+      // 2. 黑膠雜音 (Vinyl Crackle) - 增加氛圍
+      const vinylNoise = new Tone.Noise("pink").start();
+      const vinylFilter = new Tone.Filter(1000, "bandpass").toDestination();
+      vinylNoise.volume.value = -45;
+      vinylNoise.connect(vinylFilter);
 
-  // 3. 原有的樂器連接設定
-  synths.piano = new Tone.PolySynth(Tone.Synth, { 
-    oscillator: { type: "triangle" }, 
-    envelope: { attack: 0.1, release: 2 }, 
-    volume: -5 
-  }).connect(reverb);
-  
-  synths.guitar = new Tone.PolySynth(Tone.Synth, { 
-    oscillator: { type: "sine" }, 
-    envelope: { attack: 0.05, decay: 0.3, release: 1 }, 
-    volume: -10 
-  }).connect(reverb);
+      // 3. 【核心升級】使用真實鋼琴取樣 (Sampler)
+      // 這會從網路上加載真實的鋼琴錄音檔
+      synths.piano = new Tone.Sampler({
+        urls: {
+          A1: "A1.mp3",
+          A2: "A2.mp3",
+          C4: "C4.mp3",
+          A4: "A4.mp3",
+        },
+        baseUrl: "https://tonejs.github.io/audio/salamander/",
+        onload: () => {
+          console.log("真實鋼琴音源加載完成");
+        }
+      }).connect(reverb);
+      
+      synths.piano.volume.value = -8;
 
-  synths.kick = new Tone.MembraneSynth({ volume: -14 }).connect(filter);
-  synths.snare = new Tone.NoiseSynth({ volume: -26 }).connect(filter);
-  synths.hihat = new Tone.MetalSynth({ volume: -32, envelope: { decay: 0.05 } }).connect(filter);
-  
-  audioInited = true;
-}
+      // 4. 吉他與節奏組保持原本設定
+      synths.guitar = new Tone.PolySynth(Tone.Synth, { 
+        oscillator: { type: "sine" }, 
+        envelope: { attack: 0.05, decay: 0.3, release: 1 }, 
+        volume: -12 
+      }).connect(reverb);
+
+      synths.kick = new Tone.MembraneSynth({ volume: -14 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -26 }).connect(filter);
+      synths.hihat = new Tone.MetalSynth({ volume: -32, envelope: { decay: 0.05 } }).connect(filter);
+      
+      audioInited = true;
+    }
 
     playBtn.addEventListener('click', async () => {
       await initAudio();
