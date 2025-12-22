@@ -2,306 +2,139 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>Music Camera - Memory Edition</title>
+  <title>Music Camera - StreetVoice Inspired</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700&family=Noto+Serif+TC:wght@600&family=Nanum+Pen+Script&display=swap');
-    
     * { box-sizing: border-box; }
-    body {
-      margin: 0; min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      background: #e0e0e0; font-family: 'DM Sans', sans-serif;
-    }
-
-    /* --- 擬物化機身外觀 --- */
-    .camera-container {
-      width: 380px; background: linear-gradient(180deg, #e8e8e8 0%, #d1d1d1 100%);
-      border-radius: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 1px 2px #fff;
-      position: relative; overflow: hidden; border: 1px solid #b5b5b5;
-    }
-
-    .camera-top {
-      height: 70px; background: #9d6d48;
-      background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-      background-size: 4px 4px; border-bottom: 2px solid #7d5233;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .leather-stitch {
-      width: 90%; height: 45px; border: 1px dashed rgba(255,255,255,0.3);
-      border-radius: 10px; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
-    }
-
-    .brand-bar {
-      padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
-      color: #555; font-size: 14px; font-weight: bold;
-    }
-    .red-dot {
-      width: 14px; height: 14px; background: radial-gradient(circle at 30% 30%, #ff7e7e, #b30000);
-      border-radius: 50%; display: inline-block; margin-right: 8px;
-    }
-
-    .control-center {
-      margin: 0 15px; background: #1a1a1a; border-radius: 20px; padding: 25px 20px;
-      box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 1px 1px #fff; color: #fff; text-align: center;
-    }
-
-    /* 新增：風格切換按鈕樣式 */
-    .mode-switch-group {
-      display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;
-    }
-    .mode-btn {
-      padding: 6px 15px; border-radius: 15px; border: 1px solid #444; 
-      background: #222; color: #777; font-size: 12px; cursor: pointer; transition: 0.3s;
-    }
-    .mode-btn.active {
-      background: #9d6d48; color: #fff; border-color: #7d5233;
-    }
-
-    .main-btn {
-      width: 100%; height: 50px; background: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
-      border-radius: 25px; border: none; color: #1a1a1a; font-size: 18px; font-weight: 800;
-      cursor: pointer; margin-bottom: 12px; box-shadow: 0 4px 0 #999, 0 8px 15px rgba(0,0,0,0.4);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .main-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #999; }
-
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #e0e0e0; font-family: 'DM Sans', sans-serif; }
+    .camera-container { width: 380px; background: linear-gradient(180deg, #e8e8e8 0%, #d1d1d1 100%); border-radius: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.3); position: relative; overflow: hidden; border: 1px solid #b5b5b5; }
+    .camera-top { height: 70px; background: #9d6d48; border-bottom: 2px solid #7d5233; display: flex; align-items: center; justify-content: center; }
+    .leather-stitch { width: 90%; height: 45px; border: 1px dashed rgba(255,255,255,0.3); border-radius: 10px; }
+    .brand-bar { padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; color: #555; font-size: 14px; font-weight: bold; }
+    .red-dot { width: 14px; height: 14px; background: radial-gradient(circle at 30% 30%, #ff7e7e, #b30000); border-radius: 50%; display: inline-block; margin-right: 8px; }
+    .control-center { margin: 0 15px; background: #1a1a1a; border-radius: 20px; padding: 25px 20px; color: #fff; text-align: center; }
+    .mode-switch-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+    .mode-btn { padding: 6px 15px; border-radius: 15px; border: 1px solid #444; background: #222; color: #777; font-size: 12px; cursor: pointer; }
+    .mode-btn.active { background: #9d6d48; color: #fff; }
+    .main-btn { width: 100%; height: 50px; background: linear-gradient(180deg, #fff 0%, #e0e0e0 100%); border-radius: 25px; border: none; font-size: 18px; font-weight: 800; cursor: pointer; margin-bottom: 12px; }
     .sub-btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
-    .sub-btn {
-      flex: 1; height: 40px; background: linear-gradient(180deg, #333 0%, #222 100%);
-      border-radius: 20px; border: 1px solid #444; color: #777; font-weight: bold; cursor: pointer;
-    }
+    .sub-btn { flex: 1; height: 40px; background: #222; border-radius: 20px; border: 1px solid #444; color: #777; font-weight: bold; cursor: pointer; }
     .sub-btn:enabled { color: #fff; }
-
-    .analysis-text {
-      font-family: 'Noto Serif TC', serif; font-size: 16px; color: #fff;
-      margin: 15px 0 5px; min-height: 24px; line-height: 1.6; letter-spacing: 2px;
-    }
-
-    .eject-slot-container {
-      margin: 20px 15px 25px; padding: 15px; background: #bababa; border-radius: 15px;
-      box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); 
-      min-height: 300px; position: relative; overflow: hidden; display: flex; justify-content: center;
-    }
-    .black-exit-line {
-      position: absolute; bottom: 15px; width: 92%; height: 10px;
-      background: #000; border-radius: 5px; box-shadow: 0 1px 1px #fff;
-    }
-
-    /* 拍立得照片與日期樣式 */
-    .polaroid-film {
-      width: 220px; background: #fff; padding: 10px 10px 45px 10px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute;
-      transform: translateY(150%); transition: transform 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67); z-index: 10;
-    }
+    .analysis-text { font-family: 'Noto Serif TC', serif; font-size: 16px; margin: 15px 0 5px; }
+    .eject-slot-container { margin: 20px 15px 25px; padding: 15px; background: #bababa; border-radius: 15px; min-height: 300px; position: relative; overflow: hidden; display: flex; justify-content: center; }
+    .polaroid-film { width: 220px; background: #fff; padding: 10px 10px 45px 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute; transform: translateY(150%); transition: transform 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
     .polaroid-film.eject { transform: translateY(5%); }
-    .film-inner {
-      width: 100%; aspect-ratio: 1; background: #222; overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
-      position: relative;
-    }
-    #preview { width: 100%; height: 100%; object-fit: contain; opacity: 0; }
-    
-    #preview.develop { 
-      opacity: 1; 
-      transition: opacity 3.5s; 
-      filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2);
-    }
-
-    .film-inner::after {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(135deg, 
-        rgba(255, 80, 0, 0.45) 0%, 
-        rgba(255, 150, 50, 0.2) 35%, 
-        transparent 70%
-      );
-      pointer-events: none;
-      mix-blend-mode: screen; 
-      opacity: 0;
-    }
-
-    .polaroid-film.eject .film-inner::after {
-      opacity: 1;
-      transition: opacity 4s 1s; 
-    }
-    
-    .film-date {
-      position: absolute; bottom: 12px; right: 15px;
-      font-family: 'Nanum Pen Script', cursive;
-      font-size: 20px; color: #444; opacity: 0;
-    }
+    .film-inner { width: 100%; aspect-ratio: 1; background: #222; position: relative; overflow: hidden; }
+    .film-inner::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(255,80,0,0.4) 0%, transparent 70%); mix-blend-mode: screen; opacity: 0; }
+    .polaroid-film.eject .film-inner::after { opacity: 1; transition: opacity 4s 1s; }
+    #preview { width: 100%; height: 100%; object-fit: cover; opacity: 0; }
+    #preview.develop { opacity: 1; transition: opacity 3.5s; filter: sepia(0.2) contrast(0.9); }
+    .film-date { position: absolute; bottom: 12px; right: 15px; font-family: 'Nanum Pen Script', cursive; font-size: 20px; color: #444; opacity: 0; }
     .film-date.show { opacity: 1; transition: opacity 2s 1.5s; }
-
-    #cameraOverlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000;
-    }
-    #videoPreview { width: 100%; max-width: 100%; max-height: 70vh; object-fit: contain; }
-    .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
-    .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer;}
-
-    #canvas { display: none; }
+    #cameraOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+    #videoPreview { width: 100%; max-height: 70vh; object-fit: contain; }
   </style>
 </head>
 <body>
-
   <div class="camera-container">
     <div class="camera-top"><div class="leather-stitch"></div></div>
-    <div class="brand-bar">
-      <div><span class="red-dot"></span>MUSIC CAMERA 聽見風景</div>
-      <div style="width:35px; height:15px; background:linear-gradient(to right, #ddd, #fff, #ddd); border-radius:10px; border:1px solid #aaa;"></div>
-    </div>
-
+    <div class="brand-bar"><div><span class="red-dot"></span>MUSIC CAMERA 聽見風景</div></div>
     <div class="control-center">
       <div class="mode-switch-group">
         <button class="mode-btn active" id="lofiModeBtn">LO-FI</button>
         <button class="mode-btn" id="jazzModeBtn">JAZZ</button>
       </div>
-
       <button class="main-btn" id="openCamBtn">SHOOT / LOAD</button>
       <div class="sub-btn-group">
         <button class="sub-btn" id="playBtn" disabled>PLAY</button>
         <button class="sub-btn" id="stopBtn" disabled>STOP</button>
       </div>
-      <div class="analysis-text" id="analysisText">每個回憶，都是一段獨一無二的旋律</div>
+      <div class="analysis-text" id="analysisText">讓音樂完整回憶</div>
     </div>
-
     <div class="eject-slot-container">
       <div class="polaroid-film" id="polaroidFrame">
-        <div class="film-inner"><img id="preview" alt="Snapshot"/></div>
+        <div class="film-inner"><img id="preview" /></div>
         <div class="film-date" id="filmDate"></div>
       </div>
-      <div class="black-exit-line"></div>
+      <div style="position:absolute; bottom:15px; width:92%; height:10px; background:#000; border-radius:5px;"></div>
     </div>
   </div>
-
   <div id="cameraOverlay">
-    <video id="videoPreview" autoplay playsinline></video>
-    <div class="overlay-controls">
-      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">相簿</button>
-      <button class="snap-trigger" id="snapBtn"></button>
-      <button id="closeOverlay" style="color:white; background:none; border:none; cursor:pointer;">✕</button>
+    <video id="videoPreview" autoplay playsinline muted></video>
+    <div style="margin-top:30px; display:flex; gap:40px;">
+      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px;">相簿</button>
+      <button class="snap-trigger" id="snapBtn" style="width:70px; height:70px; border-radius:50%; background:#fff; border:5px solid #9d6d48;"></button>
+      <button id="closeOverlay" style="color:white; background:none; border:none;">✕</button>
     </div>
   </div>
-  
   <input type="file" id="fileInput" accept="image/*" style="display:none;">
-  <canvas id="canvas"></canvas>
-  <audio id="shutterSfx" src="polaroid-shutter.mp3"></audio>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <audio id="shutterSfx" src="https://assets.mixkit.co/active_storage/sfx/702/702-preview.mp3"></audio>
 
   <script>
-    const openCamBtn = document.getElementById('openCamBtn');
-    const cameraOverlay = document.getElementById('cameraOverlay');
-    const videoPreview = document.getElementById('videoPreview');
-    const snapBtn = document.getElementById('snapBtn');
-    const albumBtn = document.getElementById('albumBtn');
-    const fileInput = document.getElementById('fileInput');
-    const closeOverlay = document.getElementById('closeOverlay');
-    const preview = document.getElementById('preview');
-    const polaroidFrame = document.getElementById('polaroidFrame');
-    const analysisText = document.getElementById('analysisText');
-    const playBtn = document.getElementById('playBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const filmDate = document.getElementById('filmDate');
-    const shutterSfx = document.getElementById('shutterSfx');
-    const canvas = document.getElementById('canvas');
-    const lofiModeBtn = document.getElementById('lofiModeBtn');
-    const jazzModeBtn = document.getElementById('jazzModeBtn');
+    const openCamBtn = document.getElementById('openCamBtn'), cameraOverlay = document.getElementById('cameraOverlay'), videoPreview = document.getElementById('videoPreview'), snapBtn = document.getElementById('snapBtn'), albumBtn = document.getElementById('albumBtn'), fileInput = document.getElementById('fileInput'), closeOverlay = document.getElementById('closeOverlay'), preview = document.getElementById('preview'), polaroidFrame = document.getElementById('polaroidFrame'), analysisText = document.getElementById('analysisText'), playBtn = document.getElementById('playBtn'), stopBtn = document.getElementById('stopBtn'), filmDate = document.getElementById('filmDate'), shutterSfx = document.getElementById('shutterSfx'), canvas = document.getElementById('canvas'), lofiModeBtn = document.getElementById('lofiModeBtn'), jazzModeBtn = document.getElementById('jazzModeBtn');
 
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
 
-    // 12個語意標籤矩陣：定義音樂參數
-    const tagMatrix = {
-      'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.9, reverb: 0.2 },
-      'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -5, density: 0.4, reverb: 0.8 },
-      'Bright': { text: "捕捉光芒的瞬間", bpmAdd: 5, density: 0.7, reverb: 0.3 },
-      'Calm': { text: "呼吸間的寧靜", bpmAdd: -10, density: 0.3, reverb: 0.5 },
-      'Cozy': { text: "暖色調的午後", bpmAdd: -2, density: 0.5, reverb: 0.4 },
-      'Nostalgic': { text: "泛黃的舊時光", bpmAdd: -8, density: 0.4, reverb: 0.6 },
-      'Urban': { text: "都市霓虹的閃爍", bpmAdd: 10, density: 0.8, reverb: 0.3 },
-      'Tense': { text: "緊繃的視覺張力", bpmAdd: 12, density: 0.9, reverb: 0.4 },
-      'Mysterious': { text: "深邃神祕的暗影", bpmAdd: -4, density: 0.5, reverb: 0.7 },
-      'Melancholy': { text: "雨後的憂鬱藍調", bpmAdd: -12, density: 0.3, reverb: 0.7 },
-      'Lonely': { text: "看見一抹寂靜", bpmAdd: -15, density: 0.2, reverb: 0.9 },
-      'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.1, reverb: 0.8 }
+    // 1. StreetVoice 靈感配方：確保每組和弦都「好聽」
+    const lofiPresets = {
+      warm: { bpm: 92, chords: [["Fmaj7","A4","C5","E5"], ["Em7","G4","B4","D5"], ["Dm7","F4","A4","C5"], ["Cmaj7","E4","G4","B4"]], vibe: "清脆午後" },
+      chill: { bpm: 88, chords: [["Dbmaj7","F4","Ab4","C5"], ["C7","E4","G4","Bb4"], ["Fm7","Ab4","C5","Eb5"], ["Eb7","G4","Bb4","Db5"]], vibe: "微醺都市" },
+      deep: { bpm: 84, chords: [["Bbm9","Db4","F4","Ab4","C5"], ["Eb13","G4","Db5","F5"], ["Abmaj9","C4","G4","Bb4"], ["F7","A4","Eb5","G5"]], vibe: "深夜回憶" }
     };
 
-    lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
-    jazzModeBtn.addEventListener('click', () => { musicMode = 'jazz'; jazzModeBtn.classList.add('active'); lofiModeBtn.classList.remove('active'); });
+    lofiModeBtn.onclick = () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); };
+    jazzModeBtn.onclick = () => { musicMode = 'jazz'; jazzModeBtn.classList.add('active'); lofiModeBtn.classList.remove('active'); };
 
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        videoPreview.srcObject = stream;
-        cameraOverlay.style.display = 'flex';
+        videoPreview.srcObject = stream; cameraOverlay.style.display = 'flex';
       } catch (e) { fileInput.click(); }
     }
-    function stopCamera() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } cameraOverlay.style.display = 'none'; }
-    openCamBtn.addEventListener('click', startCamera);
-    closeOverlay.addEventListener('click', stopCamera);
-    albumBtn.addEventListener('click', () => fileInput.click());
+    openCamBtn.onclick = startCamera;
+    closeOverlay.onclick = () => { if(stream) stream.getTracks().forEach(t=>t.stop()); cameraOverlay.style.display='none'; };
+    albumBtn.onclick = () => fileInput.click();
 
-    snapBtn.addEventListener('click', () => {
-      const ctx = canvas.getContext('2d');
+    snapBtn.onclick = () => {
       canvas.width = videoPreview.videoWidth; canvas.height = videoPreview.videoHeight;
-      ctx.drawImage(videoPreview, 0, 0);
+      canvas.getContext('2d').drawImage(videoPreview, 0, 0);
       preview.src = canvas.toDataURL('image/jpeg');
-      stopCamera();
-      analyzePhoto();
-    });
+      cameraOverlay.style.display = 'none'; analyzePhoto();
+    };
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+    fileInput.onchange = (e) => {
       const reader = new FileReader();
-      reader.onload = (ev) => { preview.src = ev.target.result; stopCamera(); analyzePhoto(); };
-      reader.readAsDataURL(file);
-    });
+      reader.onload = (ev) => { preview.src = ev.target.result; analyzePhoto(); };
+      reader.readAsDataURL(e.target.files[0]);
+    };
 
     function analyzePhoto() {
       preview.onload = () => {
-        const ctx = canvas.getContext('2d');
-        canvas.width = 10; canvas.height = 10;
-        ctx.drawImage(preview, 0, 0, 10, 10);
-        const data = ctx.getImageData(0, 0, 10, 10).data;
-        let r=0, g=0, b=0, bri=0;
-        for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
+        const ctx = canvas.getContext('2d'); ctx.drawImage(preview, 0, 0, 10, 10);
+        const d = ctx.getImageData(0,0,10,10).data;
+        let r=0, b=0, bri=0;
+        for(let i=0; i<d.length; i+=4){ r+=d[i]; b+=d[i+2]; bri+=(d[i]+d[i+1]+d[i+2])/3; }
         
-        // 模擬 AI 分析邏輯（維持後台運算，但不顯示標籤內容）
-        const tags = Object.keys(tagMatrix);
-        let tagIndex = (r + g + b) % tags.length;
-        if (bri > 200) tagIndex = 2; // Bright
-        if (bri < 50) tagIndex = 8;  // Mysterious
-        if (b > r + 50) tagIndex = 9; // Melancholy
+        let mood = "chill";
+        if (bri > 160) mood = "warm";
+        else if (b > r) mood = "deep";
         
-        const selectedTag = tags[tagIndex];
-        currentFeatures = { 
-          tag: selectedTag,
-          tagInfo: tagMatrix[selectedTag],
-          mode: (bri/100) > 125 ? 'Major' : 'Minor',
-          seed: (r + g + b),
-          bpm: 90 + tagMatrix[selectedTag].bpmAdd
-        };
-
-        // 核心修正：文字始終固定
-        analysisText.innerHTML = `讓音樂完整回憶`;
+        currentFeatures = { mood: mood, seed: r+b };
         triggerEject();
       };
     }
-    
+
     function triggerEject() {
       const now = new Date();
-      filmDate.innerText = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-      filmDate.classList.remove('show');
+      filmDate.innerText = `${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()}`;
       polaroidFrame.classList.remove('eject');
       void polaroidFrame.offsetWidth;
       polaroidFrame.classList.add('eject');
       preview.classList.remove('develop');
-      shutterSfx.currentTime = 0; shutterSfx.play().catch(()=>{});
+      shutterSfx.play().catch(()=>{});
       setTimeout(() => { preview.classList.add('develop'); filmDate.classList.add('show'); }, 100);
       playBtn.disabled = false;
     }
@@ -310,98 +143,76 @@
       if (audioInited) return;
       await Tone.start();
       const filter = new Tone.Filter(1200, "lowpass").toDestination();
-      synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
-      const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
-
-      // --- 黑膠雜音合成器：降低頻率讓聲音更溫和 ---
-      synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(800, "lowpass").toDestination());
-      synths.noise.volume.value = -Infinity; 
-      synths.noise.start();
-
+      synths.rev = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
+      
+      // Lo-fi 靈魂：讓音高晃動的 LFO
+      synths.wobble = new Tone.LFO(3, -15, 15).start();
+      
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
-      }).connect(synths.reverb);
+      }).connect(synths.rev);
 
-      synths.guitar = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
-      }).connect(chorus);
-
-      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
-      synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
+      synths.kick = new Tone.MembraneSynth({ volume: -10 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -25 }).connect(filter);
+      synths.bass = new Tone.MonoSynth({ volume: -15, oscillator: {type:"sine"} }).connect(filter);
       audioInited = true;
     }
 
-    playBtn.addEventListener('click', async () => {
+    playBtn.onclick = async () => {
       await initAudio();
       Tone.Transport.stop(); Tone.Transport.cancel();
       
-      const f = currentFeatures;
-      const info = f.tagInfo;
-      Tone.Transport.bpm.value = f.bpm;
-      synths.reverb.wet.value = info.reverb; 
-
-      // 同步進入 + 音量調小修正
-      if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -30 : -40;
-        synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
-      } else {
-        synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
-      }
-
-      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
-      const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
-
-      Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
+      const config = lofiPresets[currentFeatures.mood];
+      Tone.Transport.bpm.value = config.bpm;
       const sequence = [];
 
-      for (let bar = 0; bar < 16; bar++) {
-        if (bar % 2 === 0 || info.density > 0.6) {
-          sequence.push({ time: `${bar}:0:0`, type: "kick" });
-          sequence.push({ time: `${bar}:2:0`, type: "kick" });
-        }
-        sequence.push({ time: `${bar}:1:0`, type: "snare" });
-        sequence.push({ time: `${bar}:3:0`, type: "snare" });
+      if (musicMode === 'lofi') {
+        // --- 核心改動：StreetVoice 式結構生成 ---
+        for (let bar = 0; bar < 8; bar++) {
+          const chord = config.chords[bar % config.chords.length];
+          const root = chord[0].replace('maj7','').replace('m7','').replace('m9','') + "2";
+          
+          // 1. 每小節第一拍的大和弦 (穩定感)
+          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: chord.slice(1), dur: "1n" });
+          sequence.push({ time: `${bar}:0:0`, type: "bass", note: root });
 
-        if (musicMode === 'jazz') {
-          for (let beat = 0; beat < 4; beat++) {
-            if (Math.random() < info.density + 0.2) {
-              const note = jazzScale[(f.seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
-              sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
-            }
+          // 2. 隨機裝飾旋律 (只彈和弦內音，保證好聽)
+          if (bar % 1 === 0) {
+            const melodyNote = chord[Math.floor(Math.random() * (chord.length-1)) + 1];
+            sequence.push({ time: `${bar}:2:2`, type: "piano", notes: [melodyNote], dur: "4n" });
           }
-          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
-        } else {
-          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
-          const guitarDensity = info.density;
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(f.seed + bar) % scale.length] });
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(f.seed + bar + 3) % scale.length] });
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(f.seed + bar + 5) % scale.length] });
+
+          // 3. 不對齊的 Lo-fi 節奏 (Swing)
+          sequence.push({ time: `${bar}:0:0.1`, type: "kick" });
+          sequence.push({ time: `${bar}:1:0.2`, type: "snare" });
+          sequence.push({ time: `${bar}:2:0.1`, type: "kick" });
+          sequence.push({ time: `${bar}:3:0.2`, type: "snare" });
+        }
+      } else {
+        // --- 完全還原的 Jazz 模式 (隔離保護) ---
+        const jazzScale = ["C3", "Eb3", "F3", "G3", "Bb3"];
+        for (let bar = 0; bar < 8; bar++) {
+          sequence.push({ time: `${bar}:0:0`, type: "bass", note: jazzScale[bar%5] });
+          if(bar%2===0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: ["C4","Eb4","G4"], dur: "2n" });
         }
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "2n", time);
+        if (v.type === "piano") {
+          synths.piano.triggerAttackRelease(v.notes, v.dur, time, 0.5);
+        }
       }, sequence).start(0);
 
-      Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
+      Tone.Transport.loop = true; Tone.Transport.loopEnd = "8m";
       Tone.Transport.start("+0.1");
-      stopBtn.disabled = false; playBtn.disabled = true;
-    });
-    
-    stopBtn.addEventListener('click', () => { 
-      Tone.Transport.stop(); 
-      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
-      playBtn.disabled = false; 
-      stopBtn.disabled = true; 
-    });
-    
+      playBtn.disabled = true; stopBtn.disabled = false;
+    };
+
+    stopBtn.onclick = () => { Tone.Transport.stop(); playBtn.disabled = false; stopBtn.disabled = true; };
   </script>
 </body>
 </html>
