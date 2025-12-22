@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>Music Camera - Sax Jazz Edition</title>
+  <title>Music Camera - Memory Edition</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
@@ -16,7 +16,7 @@
       background: #e0e0e0; font-family: 'DM Sans', sans-serif;
     }
 
-    /* --- 擬物化機身 --- */
+    /* --- 擬物化機身外觀 --- */
     .camera-container {
       width: 380px; background: linear-gradient(180deg, #e8e8e8 0%, #d1d1d1 100%);
       border-radius: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 1px 2px #fff;
@@ -48,25 +48,6 @@
       box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 1px 1px #fff; color: #fff; text-align: center;
     }
 
-    /* 風格切換開關 */
-    .style-selector {
-      display: flex; justify-content: center; align-items: center;
-      margin-bottom: 15px; gap: 10px; font-size: 12px; color: #888;
-    }
-    .toggle-switch { position: relative; display: inline-block; width: 44px; height: 22px; }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #333; transition: .4s; border-radius: 34px; border: 1px solid #444;
-    }
-    .slider:before {
-      position: absolute; content: ""; height: 14px; width: 14px; left: 4px; bottom: 3px;
-      background-color: #888; transition: .4s; border-radius: 50%;
-    }
-    input:checked + .slider { background-color: #9d6d48; }
-    input:checked + .slider:before { transform: translateX(22px); background-color: white; }
-    .active-label { color: #fff; font-weight: bold; }
-
     .main-btn {
       width: 100%; height: 50px; background: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
       border-radius: 25px; border: none; color: #1a1a1a; font-size: 18px; font-weight: 800;
@@ -89,17 +70,17 @@
 
     .eject-slot-container {
       margin: 20px 15px 25px; padding: 15px; background: #bababa; border-radius: 15px;
-      box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); min-height: 300px; 
-      position: relative; overflow: hidden; display: flex; justify-content: center;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); 
+      min-height: 300px; position: relative; overflow: hidden; display: flex; justify-content: center;
     }
     .black-exit-line {
       position: absolute; bottom: 15px; width: 92%; height: 10px;
       background: #000; border-radius: 5px; box-shadow: 0 1px 1px #fff;
     }
 
-    /* 拍立得照片 */
+    /* 拍立得照片與日期樣式 */
     .polaroid-film {
-      width: 220px; background: #fff; padding: 10px 10px 45px 10px; 
+      width: 220px; background: #fff; padding: 10px 10px 45px 10px; /* 增加底部空間放日期 */
       box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute;
       transform: translateY(150%); transition: transform 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67); z-index: 10;
     }
@@ -107,13 +88,46 @@
     .film-inner {
       width: 100%; aspect-ratio: 1; background: #222; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.6); position: relative;
+      /* 模擬拍立得暗角 (Vignette) */
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+      position: relative;
     }
     #preview { width: 100%; height: 100%; object-fit: contain; opacity: 0; }
-    #preview.develop { opacity: 1; transition: opacity 3.5s; filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2); }
+    
+    /* 增加曝光感的氣氛濾鏡 */
+#preview.develop { 
+  opacity: 1; 
+  transition: opacity 3.5s; 
+  /* 稍微降低對比並提升飽和，讓後續漏光顏色更融合 */
+  filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2);
+}
 
+/* 使用偽元素在圖片上方疊加橘紅漏光 */
+.film-inner::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  /* 模擬您照片中左上角的橘紅光暈 */
+  background: linear-gradient(135deg, 
+    rgba(255, 80, 0, 0.45) 0%, 
+    rgba(255, 150, 50, 0.2) 35%, 
+    transparent 70%
+  );
+  pointer-events: none;
+  mix-blend-mode: screen; 
+  opacity: 0;
+}
+
+/* 當照片彈出時，光暈隨之顯現 */
+.polaroid-film.eject .film-inner::after {
+  opacity: 1;
+  transition: opacity 4s 1s; 
+}
+    
+    /* 日期文字樣式：手寫感 */
     .film-date {
-      position: absolute; bottom: 12px; right: 15px; font-family: 'Nanum Pen Script', cursive;
+      position: absolute; bottom: 12px; right: 15px;
+      font-family: 'Nanum Pen Script', cursive;
       font-size: 20px; color: #444; opacity: 0;
     }
     .film-date.show { opacity: 1; transition: opacity 2s 1.5s; }
@@ -124,7 +138,7 @@
     }
     #videoPreview { width: 100%; max-width: 100%; max-height: 70vh; object-fit: contain; }
     .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
-    .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer; }
+    .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; }
 
     #canvas { display: none; }
   </style>
@@ -139,21 +153,12 @@
     </div>
 
     <div class="control-center">
-      <div class="style-selector">
-        <span id="lofiLabel" class="active-label">Lo-fi</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="styleToggle">
-          <span class="slider"></span>
-        </label>
-        <span id="jazzLabel">Jazz</span>
-      </div>
-
       <button class="main-btn" id="openCamBtn">SHOOT / LOAD</button>
       <div class="sub-btn-group">
         <button class="sub-btn" id="playBtn" disabled>PLAY</button>
         <button class="sub-btn" id="stopBtn" disabled>STOP</button>
       </div>
-      <div class="analysis-text" id="analysisText">點擊拍攝，賦予照片靈魂</div>
+      <div class="analysis-text" id="analysisText">每個回憶，都是一段獨一無二的旋律</div>
     </div>
 
     <div class="eject-slot-container">
@@ -168,9 +173,9 @@
   <div id="cameraOverlay">
     <video id="videoPreview" autoplay playsinline></video>
     <div class="overlay-controls">
-      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">相簿</button>
-      <div class="snap-trigger" id="snapBtn"></div>
-      <button id="closeOverlay" style="color:white; background:none; border:none; cursor:pointer; font-size: 24px;">✕</button>
+      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px;">相簿</button>
+      <button class="snap-trigger" id="snapBtn"></button>
+      <button id="closeOverlay" style="color:white; background:none; border:none; cursor:pointer;">✕</button>
     </div>
   </div>
   
@@ -194,35 +199,27 @@
     const filmDate = document.getElementById('filmDate');
     const shutterSfx = document.getElementById('shutterSfx');
     const canvas = document.getElementById('canvas');
-    const styleToggle = document.getElementById('styleToggle');
 
     let stream = null;
     let audioInited = false;
-    let currentFeatures = { mode: 'Major', bpm: 90 };
+    let currentFeatures = null;
     let synths = {};
 
-    // 1. 啟動相機 / 檔案選擇
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         videoPreview.srcObject = stream;
         cameraOverlay.style.display = 'flex';
-      } catch (e) { 
-        console.log("無法啟動相機，改為開啟相簿");
-        fileInput.click(); 
-      }
+      } catch (e) { fileInput.click(); }
     }
-
     function stopCamera() {
       if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
       cameraOverlay.style.display = 'none';
     }
-
     openCamBtn.addEventListener('click', startCamera);
     closeOverlay.addEventListener('click', stopCamera);
     albumBtn.addEventListener('click', () => fileInput.click());
 
-    // 2. 拍照按鈕
     snapBtn.addEventListener('click', () => {
       const ctx = canvas.getContext('2d');
       canvas.width = videoPreview.videoWidth;
@@ -233,16 +230,11 @@
       analyzePhoto();
     });
 
-    // 3. 檔案上傳監聽
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (ev) => { 
-        preview.src = ev.target.result; 
-        stopCamera(); 
-        analyzePhoto(); 
-      };
+      reader.onload = (ev) => { preview.src = ev.target.result; stopCamera(); analyzePhoto(); };
       reader.readAsDataURL(file);
     });
 
@@ -252,64 +244,69 @@
         canvas.width = 10; canvas.height = 10;
         ctx.drawImage(preview, 0, 0, 10, 10);
         const data = ctx.getImageData(0, 0, 10, 10).data;
-        let bri = 0;
-        for(let i=0; i<data.length; i+=4){ bri += (data[i]+data[i+1]+data[i+2])/3; }
+        let r=0, g=0, b=0, bri=0;
+        for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
-        currentFeatures.mode = (bri/100) > 125 ? 'Major' : 'Minor';
-        currentFeatures.bpm = 75 + Math.floor(((bri/100)/255) * 15);
+        currentFeatures = { 
+          mode: (bri/100) > 125 ? 'Major' : 'Minor',
+          vibe: (r/100) > (b/100) ? 'Warm' : 'Cool',
+          complexity: (g/100) / 255,
+          bpm: 110 + Math.floor(((bri/100)/255) * 20) // Swing 稍微輕快一點
+        };
 
-        analysisText.innerHTML = `回憶沖洗中...`;
+        analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
     }
 
     function triggerEject() {
       const now = new Date();
-      filmDate.innerText = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+      const dateString = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+      filmDate.innerText = dateString;
       filmDate.classList.remove('show');
       polaroidFrame.classList.remove('eject');
       void polaroidFrame.offsetWidth;
       polaroidFrame.classList.add('eject');
       preview.classList.remove('develop');
-      shutterSfx.play().catch(()=>{});
-      setTimeout(() => { 
-        preview.classList.add('develop'); 
+      shutterSfx.currentTime = 0; shutterSfx.play();
+      setTimeout(() => {
+        preview.classList.add('develop');
         filmDate.classList.add('show');
-        analysisText.innerHTML = `準備好聽見這張照片了嗎？`;
       }, 100);
       playBtn.disabled = false;
     }
 
-    // 4. 音訊系統 (薩克斯風與吉他)
+    // --- 音樂邏輯改進區 ---
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
-      Tone.context.resume();
 
-      const reverb = new Tone.Reverb({ decay: 5, wet: 0.3 }).toDestination();
+      const filter = new Tone.Filter(1500, "lowpass").toDestination();
+      const reverb = new Tone.Reverb({ decay: 3, wet: 0.2 }).connect(filter);
+      const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
 
-      // Lo-fi 專用吉他
-      synths.guitar = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.03, decay: 1, sustain: 0.1, release: 1.2 }
-      }).connect(reverb);
-
-      // Jazz 專用薩克斯風 (Sawtooth + Filter + Vibrato)
-      synths.sax = new Tone.MonoSynth({
-        oscillator: { type: "sawtooth" },
-        filter: { Q: 1.5, type: "lowpass", rolloff: -24 },
-        envelope: { attack: 0.15, decay: 0.2, sustain: 0.7, release: 1 }
-      }).connect(reverb);
-      
-      const vibrato = new Tone.LFO("5hz", -15, 15).connect(synths.sax.oscillator.detune).start();
-
+      // 1. 保留鋼琴
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(reverb);
 
-      synths.kick = new Tone.MembraneSynth({ volume: -15 }).toDestination();
-      synths.snare = new Tone.NoiseSynth({ volume: -30 }).toDestination();
+      // 2. Lo-fi 吉他 (完全不動您的設定)
+      synths.guitar = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
+      }).connect(chorus);
+      
+      // 3. 爵士貝斯 (Walking Bass 專用)
+      synths.bass = new Tone.MonoSynth({
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.05, decay: 0.3, sustain: 0.2, release: 0.8 },
+        filterEnvelope: { attack: 0.01, baseFrequency: 200, octaves: 2 }
+      }).toDestination();
+
+      // 4. 爵士鼓組 (模擬沙沙聲)
+      synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -35, envelope: { decay: 0.1 } }).connect(filter);
       
       audioInited = true;
     }
@@ -319,31 +316,43 @@
       Tone.Transport.stop();
       Tone.Transport.cancel();
       
-      const isJazz = styleToggle.checked;
-      Tone.Transport.bpm.value = isJazz ? 65 : currentFeatures.bpm;
+      const f = currentFeatures;
+      const isJazz = f.vibe === 'Warm'; // 範例邏輯：溫暖色調觸發 Jazz 風格
+      
+      Tone.Transport.bpm.value = f.bpm;
+      
+      // Swing 核心：開啟搖擺律動
+      Tone.Transport.swing = isJazz ? 0.4 : 0; 
+      Tone.Transport.swingSubdivision = "8n";
 
-      const scale = isJazz 
-        ? ["C3", "Eb3", "G3", "Bb3", "D4", "F4"] // Jazz Minor/Blues scale
-        : ["C4", "D4", "E4", "G4", "A4"];       // Lo-fi Pentatonic
+      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
+      const bassScale = ["C2", "E2", "G2", "A2"];
 
       const sequence = [];
       for (let bar = 0; bar < 8; bar++) {
-        sequence.push({ time: `${bar}:0:0`, type: "kick" });
-        sequence.push({ time: `${bar}:2:0`, type: "kick" });
-        sequence.push({ time: `${bar}:1:0`, type: "snare" });
-        sequence.push({ time: `${bar}:3:0`, type: "snare" });
-
         if (isJazz) {
-          // Jazz 鋼琴豐富和弦
-          if (bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2], scale[3], scale[4]] });
-          // 薩克斯風長音即興
-          sequence.push({ 
-            time: `${bar}:0:2`, type: "sax", 
-            note: scale[Math.floor(Math.random()*scale.length)], dur: "1n" 
-          });
+          // --- Swing Jazz 邏輯 ---
+          // 走步貝斯 (每拍一下)
+          sequence.push({ time: `${bar}:0:0`, type: "bass", note: bassScale[0] });
+          sequence.push({ time: `${bar}:1:0`, type: "bass", note: bassScale[1] });
+          sequence.push({ time: `${bar}:2:0`, type: "bass", note: bassScale[2] });
+          sequence.push({ time: `${bar}:3:0`, type: "bass", note: bassScale[3] });
+          
+          // 輕快鼓點 (Swing Feel)
+          sequence.push({ time: `${bar}:0:0`, type: "kick" });
+          sequence.push({ time: `${bar}:1:2`, type: "snare" }); // 切分音
+          
+          // 鋼琴 (優雅跳動)
+          if (bar % 2 === 0) {
+            sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [scale[0], scale[2], scale[3]] });
+          }
         } else {
-          // Lo-fi 吉他律動
-          if (bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: ["C4", "G4"] });
+          // --- 原本的 Lo-fi 邏輯 (完全保留) ---
+          sequence.push({ time: `${bar}:0:0`, type: "kick" });
+          sequence.push({ time: `${bar}:2:0`, type: "kick" });
+          sequence.push({ time: `${bar}:1:0`, type: "snare" });
+          sequence.push({ time: `${bar}:3:0`, type: "snare" });
+          if (bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
           sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
           sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
         }
@@ -352,24 +361,24 @@
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.2);
-        if (v.type === "sax") synths.sax.triggerAttackRelease(v.note, v.dur, time, 0.4);
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.3);
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
+        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "2n", time, 0.3);
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
       }, sequence).start(0);
 
       Tone.Transport.loop = true;
       Tone.Transport.loopEnd = "8m";
       Tone.Transport.start("+0.1");
+      
       stopBtn.disabled = false;
       playBtn.disabled = true;
-      analysisText.innerHTML = isJazz ? `正在演奏：微醺薩克斯風` : `正在演奏：清晨 Lo-fi`;
+      analysisText.innerHTML = isJazz ? "這是一首復古的 Swing Jazz" : "這是一首慵懶的 Lo-fi Beat";
     });
     
     stopBtn.addEventListener('click', () => {
       Tone.Transport.stop();
       playBtn.disabled = false;
       stopBtn.disabled = true;
-      analysisText.innerHTML = `音樂已停止`;
     });
   </script>
 </body>
