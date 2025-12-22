@@ -313,9 +313,9 @@
       }).connect(reverb);
 
       // 5. 【調小音量】鼓組 (Drums)
-      synths.kick = new Tone.MembraneSynth({ volume: -22 }).connect(filter); // 大鼓調弱
-      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);   // 小鼓調弱
-      synths.hihat = new Tone.MetalSynth({ volume: -40, envelope: { decay: 0.05 } }).connect(filter); // 踏鈸調更弱
+      synths.kick = new Tone.MembraneSynth({ volume: -30 }).connect(filter); // 大鼓調弱
+      synths.snare = new Tone.NoiseSynth({ volume: -50 }).connect(filter);   // 小鼓調弱
+      synths.hihat = new Tone.MetalSynth({ volume: -50, envelope: { decay: 0.05 } }).connect(filter); // 踏鈸調更弱
       
       audioInited = true;
     }
