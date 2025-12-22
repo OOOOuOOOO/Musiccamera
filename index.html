@@ -358,72 +358,108 @@ let currentFacingMode = "environment";
       audioInited = true;
     }
 
+   // --- 音樂生成邏輯開始 (Lo-Fi 優化版 + Jazz 保留版) ---
+    const chordProgressions = {
+      warm: [["Cmaj7", "Am7", "Dm7", "G7"], ["Fmaj7", "G7", "Em7", "Am7"], ["Cmaj7", "Fmaj7", "Dm7", "E7"]],
+      deep: [["Am7", "Dm7", "G7", "Cmaj7"], ["Fmaj7", "E7", "Am7", "Gm7"], ["Dm7", "G7", "Cmaj7", "A7"]]
+    };
+
     playBtn.addEventListener('click', async () => {
       await initAudio();
       Tone.Transport.stop(); Tone.Transport.cancel();
       
       const f = currentFeatures;
       const info = f.tagInfo;
-      Tone.Transport.bpm.value = f.bpm;
-      synths.reverb.wet.value = info.reverb; 
+      const seed = f.seed;
+      
+      // 1. 空間濾鏡處理 (Lo-Fi 專屬)
+      let distance = "near";
+      if (f.tag === 'Lonely' || f.tag === 'Melancholy' || f.tag === 'Mysterious') distance = "far";
+      else if (f.tag === 'Nostalgic' || f.tag === 'Dreamy' || f.tag === 'Calm') distance = "muffled";
 
       if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -30 : -40;
-        synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
+        if (distance === "far") { 
+          synths.reverb.wet.rampTo(0.6, 1);
+          synths.noise.volume.rampTo(-30, 2);
+        } else if (distance === "muffled") { 
+          synths.reverb.wet.rampTo(0.4, 1);
+          synths.noise.volume.rampTo(-35, 2);
+        } else { 
+          synths.reverb.wet.rampTo(0.2, 1);
+          synths.noise.volume.rampTo(-45, 2);
+        }
       } else {
-        synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
+        synths.noise.volume.rampTo(-Infinity, 1);
+        synths.reverb.wet.value = info.reverb;
       }
 
-      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
-      const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
-
-      Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
+      Tone.Transport.bpm.value = f.bpm;
       const sequence = [];
 
-      for (let bar = 0; bar < 16; bar++) {
-        if (bar % 2 === 0 || info.density > 0.6) {
-          sequence.push({ time: `${bar}:0:0`, type: "kick" });
-          sequence.push({ time: `${bar}:2:0`, type: "kick" });
-        }
-        sequence.push({ time: `${bar}:1:0`, type: "snare" });
-        sequence.push({ time: `${bar}:3:0`, type: "snare" });
+      if (musicMode === 'lofi') {
+        // --- Lo-Fi 優化邏輯 ---
+        const category = f.mode === 'Major' ? 'warm' : 'deep';
+        const prog = chordProgressions[category][seed % 3];
+        const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4", "C5"] : ["A3", "C4", "D4", "E4", "G4", "A4"];
+        const melodyType = seed % 4;
 
-        if (musicMode === 'jazz') {
+        for (let bar = 0; bar < 16; bar++) {
+          const root = prog[bar % prog.length][0].substring(0, 1) + (category === 'warm' ? "3" : "2");
+          // 呼吸感鼓組 (微偏移)
+          sequence.push({ time: `${bar}:0:0`, type: "kick" });
+          sequence.push({ time: `${bar}:1:0.2`, type: "snare" });
+          sequence.push({ time: `${bar}:3:0.2`, type: "snare" });
+          sequence.push({ time: `${bar}:0:0`, type: "bass", note: root });
+
+          // 旋律基因生成
+          if (bar % 2 === 0) {
+            if (melodyType === 0) sequence.push({ time: `${bar}:1:0`, type: "piano", note: scale[seed % 6], dur: "2n" });
+            else if (melodyType === 1) {
+              sequence.push({ time: `${bar}:0:2`, type: "piano", note: scale[(seed+bar)%6], dur: "4n" });
+              sequence.push({ time: `${bar}:1:0`, type: "piano", note: scale[(seed+bar+1)%6], dur: "8n" });
+            }
+            else if (melodyType === 2 && bar % 4 === 0) sequence.push({ time: `${bar}:2:0`, type: "piano", note: scale[5], dur: "1n" });
+            else sequence.push({ time: `${bar}:0:0`, type: "piano", note: scale[0], dur: "2n" });
+          }
+        }
+      } else {
+        // --- Jazz 原始邏輯保留 ---
+        const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
+        Tone.Transport.swing = 0.4;
+        for (let bar = 0; bar < 16; bar++) {
+          if (bar % 2 === 0 || info.density > 0.6) {
+            sequence.push({ time: `${bar}:0:0`, type: "kick" });
+            sequence.push({ time: `${bar}:2:0`, type: "kick" });
+          }
+          sequence.push({ time: `${bar}:1:0`, type: "snare" });
+          sequence.push({ time: `${bar}:3:0`, type: "snare" });
+
           for (let beat = 0; beat < 4; beat++) {
             if (Math.random() < info.density + 0.2) {
-              const note = jazzScale[(f.seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
+              const note = jazzScale[(seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
               sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
             }
           }
           if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
-        } else {
-          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
-          const guitarDensity = info.density;
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(f.seed + bar) % scale.length] });
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(f.seed + bar + 3) % scale.length] });
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(f.seed + bar + 5) % scale.length] });
         }
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "2n", time, 0.4);
+        if (v.type === "piano" && synths.piano.loaded) {
+          const vel = musicMode === 'lofi' ? (0.2 + Math.random() * 0.2) : 0.4;
+          const notes = v.notes || v.note;
+          synths.piano.triggerAttackRelease(notes, v.dur || "4n", time, vel);
+        }
       }, sequence).start(0);
 
       Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
       stopBtn.disabled = false; playBtn.disabled = true;
     });
-    
-    stopBtn.addEventListener('click', () => { 
-      Tone.Transport.stop(); 
-      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
-      playBtn.disabled = false; 
-      stopBtn.disabled = true; 
-    });
+    // --- 音樂生成邏輯結束 ---
 
     // --- 新增：影片錄製功能 ---
 
