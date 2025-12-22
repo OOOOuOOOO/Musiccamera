@@ -291,39 +291,31 @@
         wet: 0.3 
       }).connect(filter);
 
-      // 2. 黑膠雜音 (Vinyl Crackle) - 增加氛圍
+      // 2. 黑膠雜音 (Vinyl Crackle)
       const vinylNoise = new Tone.Noise("pink").start();
       const vinylFilter = new Tone.Filter(1000, "bandpass").toDestination();
-      vinylNoise.volume.value = -45;
+      vinylNoise.volume.value = -35;
       vinylNoise.connect(vinylFilter);
 
-      // 3. 【核心升級】使用真實鋼琴取樣 (Sampler)
-      // 這會從網路上加載真實的鋼琴錄音檔
+      // 3. 真實鋼琴取樣
       synths.piano = new Tone.Sampler({
-        urls: {
-          A1: "A1.mp3",
-          A2: "A2.mp3",
-          C4: "C4.mp3",
-          A4: "A4.mp3",
-        },
+        urls: { A1: "A1.mp3", A2: "A2.mp3", C4: "C4.mp3", A4: "A4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
-        onload: () => {
-          console.log("真實鋼琴音源加載完成");
-        }
+        onload: () => { console.log("鋼琴加載完成"); }
       }).connect(reverb);
-      
-      synths.piano.volume.value = -8;
+      synths.piano.volume.value = -10; // 稍微降低鋼琴，讓出音場給吉他
 
-      // 4. 吉他與節奏組保持原本設定
+      // 4. 【調大音量】吉他 (Guitar)
       synths.guitar = new Tone.PolySynth(Tone.Synth, { 
         oscillator: { type: "sine" }, 
         envelope: { attack: 0.05, decay: 0.3, release: 1 }, 
-        volume: -12 
+        volume: -5 // 這裡調大了，讓吉他聲變清晰
       }).connect(reverb);
 
-      synths.kick = new Tone.MembraneSynth({ volume: -14 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -26 }).connect(filter);
-      synths.hihat = new Tone.MetalSynth({ volume: -32, envelope: { decay: 0.05 } }).connect(filter);
+      // 5. 【調小音量】鼓組 (Drums)
+      synths.kick = new Tone.MembraneSynth({ volume: -22 }).connect(filter); // 大鼓調弱
+      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);   // 小鼓調弱
+      synths.hihat = new Tone.MetalSynth({ volume: -40, envelope: { decay: 0.05 } }).connect(filter); // 踏鈸調更弱
       
       audioInited = true;
     }
