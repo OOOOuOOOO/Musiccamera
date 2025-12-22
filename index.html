@@ -295,7 +295,7 @@
   // 使用 Noise 產生基礎雜訊，並用極低的音量 (-45) 確保不吵雜
   const vinylNoise = new Tone.Noise("pink").start();
   const vinylFilter = new Tone.Filter(1000, "bandpass").toDestination();
-  vinylNoise.volume.value = -45; // 控制雜音音量，-45 是很細微的背景聲
+  vinylNoise.volume.value = -35; // 控制雜音音量，-45 是很細微的背景聲
   vinylNoise.connect(vinylFilter);
 
   // 3. 原有的樂器連接設定
