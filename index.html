@@ -305,25 +305,12 @@
       }).connect(reverb);
       synths.piano.volume.value = -6; // 稍微降低鋼琴，讓出音場給吉他
 
-      // 4. 【核心更換】換成音質更好的 Acoustic Guitar
-      synths.guitar = new Tone.Sampler({
-        urls: {
-          "A2": "A2.mp3",
-          "A3": "A3.mp3",
-          "C4": "C4.mp3",
-          "A4": "A4.mp3"
-        },
-        baseUrl: "https://tonejs.github.io/audio/acoustic-guitar/",
-        onload: () => { console.log("高品質民謠吉他加載完成"); }
-      }).connect(chorus); // 連接到 chorus 增加 Lo-fi 感
-      synths.guitar.volume.value = -20; // 保持背景音量
-      
-      synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
-      synths.hihat = new Tone.MetalSynth({ volume: -42 }).connect(filter);
-      
-      audioInited = true;
-    }
+      // 4. 【調大音量】吉他 (Guitar)
+      synths.guitar = new Tone.PolySynth(Tone.Synth, { 
+        oscillator: { type: "sine" }, 
+        envelope: { attack: 0.05, decay: 0.3, release: 1 }, 
+        volume: -10 // 這裡調大了，讓吉他聲變清晰
+      }).connect(reverb);
 
       // 5. 【調小音量】鼓組 (Drums)
       synths.kick = new Tone.MembraneSynth({ volume: -30 }).connect(filter); // 大鼓調弱
@@ -335,47 +322,59 @@
 
    playBtn.addEventListener('click', async () => {
       await initAudio();
-      Tone.Transport.stop(); Tone.Transport.cancel();
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
       
       const f = currentFeatures;
       Tone.Transport.bpm.value = f.bpm;
+      
+      // 設定音階
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
 
       const sequence = [];
       for (let bar = 0; bar < 16; bar++) {
+        // --- 1. 鼓組 (維持輕微背景) ---
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
+        // --- 2. 鋼琴 (主穩定音) ---
         if (bar % 2 === 0) {
           sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
         }
 
-        // 吉他點綴：減少次數但增加質感
-        if (Math.random() > 0.3) {
-          sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+        // --- 3. 【加強版】吉他旋律機制 ---
+        // 讓吉他在第 1、2、3 拍都有機會出現點綴，並增加切分音感
+        sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+        sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+        sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+        
+        // 50% 機率在第 4 拍增加一個高音吉他
+        if (Math.random() > 0.5) {
+          sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[scale.length-1] });
         }
-        sequence.push({ time: `${bar}:2:3`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
         
+        // 鋼琴彈奏較長，音量略輕
         if (v.type === "piano") {
           synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
         }
         
-        // 吉他：觸發力度微弱化 (0.25)，讓它真的像背景
+        // 吉他彈奏較清脆，音量較亮
         if (v.type === "guitar") {
-          synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.25);
+          synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.8);
         }
       }, sequence).start(0);
 
       Tone.Transport.loop = true;
       Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
+      
       stopBtn.disabled = false;
       playBtn.disabled = true;
     });
