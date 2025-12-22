@@ -358,31 +358,34 @@ let currentFacingMode = "environment";
       audioInited = true;
     }
 
-   // --- 音樂生成邏輯開始 (Lo-Fi 優化版 + Jazz 保留版) ---
+   // --- 音樂優化修正版：豐富旋律 + 長循環 + 修復停止按鈕 ---
     const chordProgressions = {
       warm: [["Cmaj7", "Am7", "Dm7", "G7"], ["Fmaj7", "G7", "Em7", "Am7"], ["Cmaj7", "Fmaj7", "Dm7", "E7"]],
       deep: [["Am7", "Dm7", "G7", "Cmaj7"], ["Fmaj7", "E7", "Am7", "Gm7"], ["Dm7", "G7", "Cmaj7", "A7"]]
     };
 
+    let activePart = null; // 用來追蹤當前播放的樂段，修復 Stop 鍵失效問題
+
     playBtn.addEventListener('click', async () => {
       await initAudio();
-      Tone.Transport.stop(); Tone.Transport.cancel();
+      Tone.Transport.stop(); 
+      Tone.Transport.cancel(); // 徹底清除舊旋律
+      if(activePart) { activePart.dispose(); } // 銷毀舊物件防止記憶體洩漏
       
       const f = currentFeatures;
-      const info = f.tagInfo;
       const seed = f.seed;
       
-      // 1. 空間濾鏡處理 (Lo-Fi 專屬)
+      // 1. 空間濾鏡：強化真空感
       let distance = "near";
       if (f.tag === 'Lonely' || f.tag === 'Melancholy' || f.tag === 'Mysterious') distance = "far";
       else if (f.tag === 'Nostalgic' || f.tag === 'Dreamy' || f.tag === 'Calm') distance = "muffled";
 
       if (musicMode === 'lofi') {
         if (distance === "far") { 
-          synths.reverb.wet.rampTo(0.6, 1);
+          synths.reverb.wet.rampTo(0.7, 1);
           synths.noise.volume.rampTo(-30, 2);
         } else if (distance === "muffled") { 
-          synths.reverb.wet.rampTo(0.4, 1);
+          synths.reverb.wet.rampTo(0.5, 1);
           synths.noise.volume.rampTo(-35, 2);
         } else { 
           synths.reverb.wet.rampTo(0.2, 1);
@@ -390,72 +393,80 @@ let currentFacingMode = "environment";
         }
       } else {
         synths.noise.volume.rampTo(-Infinity, 1);
-        synths.reverb.wet.value = info.reverb;
+        synths.reverb.wet.value = 0.3;
       }
 
       Tone.Transport.bpm.value = f.bpm;
       const sequence = [];
 
       if (musicMode === 'lofi') {
-        // --- Lo-Fi 優化邏輯 ---
         const category = f.mode === 'Major' ? 'warm' : 'deep';
         const prog = chordProgressions[category][seed % 3];
+        // 旋律音階
         const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4", "C5"] : ["A3", "C4", "D4", "E4", "G4", "A4"];
-        const melodyType = seed % 4;
 
+        // 生成 16 小節完整旋律
         for (let bar = 0; bar < 16; bar++) {
-          const root = prog[bar % prog.length][0].substring(0, 1) + (category === 'warm' ? "3" : "2");
-          // 呼吸感鼓組 (微偏移)
+          const chord = prog[bar % prog.length];
+          const root = chord[0].substring(0, 1) + (category === 'warm' ? "3" : "2");
+          
+          // --- 節奏層 (呼吸感) ---
           sequence.push({ time: `${bar}:0:0`, type: "kick" });
           sequence.push({ time: `${bar}:1:0.2`, type: "snare" });
           sequence.push({ time: `${bar}:3:0.2`, type: "snare" });
-          sequence.push({ time: `${bar}:0:0`, type: "bass", note: root });
+          sequence.push({ time: `${bar}:0:1`, type: "bass", note: root });
 
-          // 旋律基因生成
+          // --- 旋律層 (Motif 生成) ---
+          // 增加音符密度，確保聽起來像旋律
           if (bar % 2 === 0) {
-            if (melodyType === 0) sequence.push({ time: `${bar}:1:0`, type: "piano", note: scale[seed % 6], dur: "2n" });
-            else if (melodyType === 1) {
-              sequence.push({ time: `${bar}:0:2`, type: "piano", note: scale[(seed+bar)%6], dur: "4n" });
-              sequence.push({ time: `${bar}:1:0`, type: "piano", note: scale[(seed+bar+1)%6], dur: "8n" });
+            // 第一小節：主題發起
+            sequence.push({ time: `${bar}:0:2`, type: "piano", note: scale[seed % 4], dur: "4n" });
+            sequence.push({ time: `${bar}:1:1`, type: "piano", note: scale[(seed + 2) % 6], dur: "8n" });
+            sequence.push({ time: `${bar}:1:3`, type: "piano", note: scale[(seed + 3) % 6], dur: "8n" });
+          } else {
+            // 第二小節：主題回應 (拉長音或變奏)
+            sequence.push({ time: `${bar}:0:0`, type: "piano", note: scale[(seed + bar) % 6], dur: "2n" });
+            if (seed % 2 === 0) {
+              sequence.push({ time: `${bar}:2:2`, type: "piano", note: scale[5], dur: "4n" });
             }
-            else if (melodyType === 2 && bar % 4 === 0) sequence.push({ time: `${bar}:2:0`, type: "piano", note: scale[5], dur: "1n" });
-            else sequence.push({ time: `${bar}:0:0`, type: "piano", note: scale[0], dur: "2n" });
+          }
+          // 加入極簡的環境背景鋼琴 (高音偶爾點綴)
+          if (bar % 4 === 3) {
+            sequence.push({ time: `${bar}:2:0`, type: "piano", note: scale[0].replace('4','5'), dur: "1n" });
           }
         }
       } else {
-        // --- Jazz 原始邏輯保留 ---
+        // Jazz 原始邏輯
         const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
         Tone.Transport.swing = 0.4;
         for (let bar = 0; bar < 16; bar++) {
-          if (bar % 2 === 0 || info.density > 0.6) {
-            sequence.push({ time: `${bar}:0:0`, type: "kick" });
-            sequence.push({ time: `${bar}:2:0`, type: "kick" });
-          }
+          sequence.push({ time: `${bar}:0:0`, type: "kick" });
           sequence.push({ time: `${bar}:1:0`, type: "snare" });
+          sequence.push({ time: `${bar}:2:0`, type: "kick" });
           sequence.push({ time: `${bar}:3:0`, type: "snare" });
-
           for (let beat = 0; beat < 4; beat++) {
-            if (Math.random() < info.density + 0.2) {
+            if (Math.random() < 0.6) {
               const note = jazzScale[(seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
               sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: note });
             }
           }
-          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
+          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]], dur: "2n" });
         }
       }
 
-      new Tone.Part((time, v) => {
+      activePart = new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "2n", time, 0.4);
         if (v.type === "piano" && synths.piano.loaded) {
-          const vel = musicMode === 'lofi' ? (0.2 + Math.random() * 0.2) : 0.4;
+          const vel = musicMode === 'lofi' ? (0.25 + Math.random() * 0.2) : 0.4;
           const notes = v.notes || v.note;
           synths.piano.triggerAttackRelease(notes, v.dur || "4n", time, vel);
         }
       }, sequence).start(0);
 
-      Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
+      Tone.Transport.loop = true; 
+      Tone.Transport.loopEnd = "16m"; // 固定 16 小節循環
       Tone.Transport.start("+0.1");
       stopBtn.disabled = false; playBtn.disabled = true;
     });
