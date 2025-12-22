@@ -287,7 +287,7 @@
           bpm: 90 + tagMatrix[selectedTag].bpmAdd
         };
 
-        // 核心修正：文字始終固定
+        // 核心修正：文字始終固定，讓使用者感受音樂的隨機與獨特，而非標籤的定義
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
@@ -313,11 +313,6 @@
       synths.reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(synths.reverb).start(); 
 
-      // --- 黑膠雜音合成器：降低頻率讓聲音更溫和 ---
-      synths.noise = new Tone.Noise("pink").connect(new Tone.Filter(800, "lowpass").toDestination());
-      synths.noise.volume.value = -Infinity; 
-      synths.noise.start();
-
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
@@ -329,8 +324,8 @@
       }).connect(chorus);
 
       synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" } }).toDestination();
-      synths.kick = new Tone.MembraneSynth({ volume: -25 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -38 }).connect(filter);
+      synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
       audioInited = true;
     }
 
@@ -342,14 +337,6 @@
       const info = f.tagInfo;
       Tone.Transport.bpm.value = f.bpm;
       synths.reverb.wet.value = info.reverb; 
-
-      // 同步進入 + 音量調小修正
-      if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -38 : -50;
-        synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
-      } else {
-        synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
-      }
 
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
       const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
@@ -395,11 +382,7 @@
       stopBtn.disabled = false; playBtn.disabled = true;
     });
     
-    stopBtn.addEventListener('click', () => { 
-      Tone.Transport.stop(); 
-      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
-      playBtn.disabled = false; 
-      stopBtn.disabled = true; 
+    stopBtn.addEventListener('click', () => { Tone.Transport.stop(); playBtn.disabled = false; stopBtn.disabled = true; 
     });
     
   </script>
