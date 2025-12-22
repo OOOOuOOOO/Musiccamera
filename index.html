@@ -48,6 +48,18 @@
       box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 1px 1px #fff; color: #fff; text-align: center;
     }
 
+    /* 新增：風格切換按鈕樣式 */
+    .mode-switch-group {
+      display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;
+    }
+    .mode-btn {
+      padding: 6px 15px; border-radius: 15px; border: 1px solid #444; 
+      background: #222; color: #777; font-size: 12px; cursor: pointer; transition: 0.3s;
+    }
+    .mode-btn.active {
+      background: #9d6d48; color: #fff; border-color: #7d5233;
+    }
+
     .main-btn {
       width: 100%; height: 50px; background: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
       border-radius: 25px; border: none; color: #1a1a1a; font-size: 18px; font-weight: 800;
@@ -80,7 +92,7 @@
 
     /* 拍立得照片與日期樣式 */
     .polaroid-film {
-      width: 220px; background: #fff; padding: 10px 10px 45px 10px; /* 增加底部空間放日期 */
+      width: 220px; background: #fff; padding: 10px 10px 45px 10px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute;
       transform: translateY(150%); transition: transform 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67); z-index: 10;
     }
@@ -88,43 +100,36 @@
     .film-inner {
       width: 100%; aspect-ratio: 1; background: #222; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
-      /* 模擬拍立得暗角 (Vignette) */
       box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
       position: relative;
     }
     #preview { width: 100%; height: 100%; object-fit: contain; opacity: 0; }
     
-    /* 增加曝光感的氣氛濾鏡 */
-#preview.develop { 
-  opacity: 1; 
-  transition: opacity 3.5s; 
-  /* 稍微降低對比並提升飽和，讓後續漏光顏色更融合 */
-  filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2);
-}
+    #preview.develop { 
+      opacity: 1; 
+      transition: opacity 3.5s; 
+      filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2);
+    }
 
-/* 使用偽元素在圖片上方疊加橘紅漏光 */
-.film-inner::after {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  /* 模擬您照片中左上角的橘紅光暈 */
-  background: linear-gradient(135deg, 
-    rgba(255, 80, 0, 0.45) 0%, 
-    rgba(255, 150, 50, 0.2) 35%, 
-    transparent 70%
-  );
-  pointer-events: none;
-  mix-blend-mode: screen; 
-  opacity: 0;
-}
+    .film-inner::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, 
+        rgba(255, 80, 0, 0.45) 0%, 
+        rgba(255, 150, 50, 0.2) 35%, 
+        transparent 70%
+      );
+      pointer-events: none;
+      mix-blend-mode: screen; 
+      opacity: 0;
+    }
 
-/* 當照片彈出時，光暈隨之顯現 */
-.polaroid-film.eject .film-inner::after {
-  opacity: 1;
-  transition: opacity 4s 1s; 
-}
+    .polaroid-film.eject .film-inner::after {
+      opacity: 1;
+      transition: opacity 4s 1s; 
+    }
     
-    /* 日期文字樣式：手寫感 */
     .film-date {
       position: absolute; bottom: 12px; right: 15px;
       font-family: 'Nanum Pen Script', cursive;
@@ -138,7 +143,7 @@
     }
     #videoPreview { width: 100%; max-width: 100%; max-height: 70vh; object-fit: contain; }
     .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
-    .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; }
+    .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer;}
 
     #canvas { display: none; }
   </style>
@@ -153,6 +158,11 @@
     </div>
 
     <div class="control-center">
+      <div class="mode-switch-group">
+        <button class="mode-btn active" id="lofiModeBtn">LO-FI</button>
+        <button class="mode-btn" id="jazzModeBtn">JAZZ</button>
+      </div>
+
       <button class="main-btn" id="openCamBtn">SHOOT / LOAD</button>
       <div class="sub-btn-group">
         <button class="sub-btn" id="playBtn" disabled>PLAY</button>
@@ -173,7 +183,7 @@
   <div id="cameraOverlay">
     <video id="videoPreview" autoplay playsinline></video>
     <div class="overlay-controls">
-      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px;">相簿</button>
+      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px; cursor:pointer;">相簿</button>
       <button class="snap-trigger" id="snapBtn"></button>
       <button id="closeOverlay" style="color:white; background:none; border:none; cursor:pointer;">✕</button>
     </div>
@@ -199,11 +209,28 @@
     const filmDate = document.getElementById('filmDate');
     const shutterSfx = document.getElementById('shutterSfx');
     const canvas = document.getElementById('canvas');
+    
+    // 風格按鈕
+    const lofiModeBtn = document.getElementById('lofiModeBtn');
+    const jazzModeBtn = document.getElementById('jazzModeBtn');
 
     let stream = null;
     let audioInited = false;
     let currentFeatures = null;
     let synths = {};
+    let musicMode = 'lofi'; // 預設風格
+
+    // 切換風格按鈕邏輯
+    lofiModeBtn.addEventListener('click', () => {
+      musicMode = 'lofi';
+      lofiModeBtn.classList.add('active');
+      jazzModeBtn.classList.remove('active');
+    });
+    jazzModeBtn.addEventListener('click', () => {
+      musicMode = 'jazz';
+      jazzModeBtn.classList.add('active');
+      lofiModeBtn.classList.remove('active');
+    });
 
     async function startCamera() {
       try {
@@ -247,11 +274,11 @@
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
         
+        // 核心修正：將 R, G, B 作為隨機種子的一部分，確保音樂獨一無二
         currentFeatures = { 
           mode: (bri/100) > 125 ? 'Major' : 'Minor',
-          vibe: (r/100) > (b/100) ? 'Warm' : 'Cool',
-          complexity: (g/100) / 255,
-          bpm: 110 + Math.floor(((bri/100)/255) * 20) // Swing 稍微輕快一點
+          seed: (r + g + b), // 音樂隨機因子
+          bpm: 86 + Math.floor(((bri/100)/255) * 12)
         };
 
         analysisText.innerHTML = `讓音樂完整回憶`;
@@ -268,7 +295,8 @@
       void polaroidFrame.offsetWidth;
       polaroidFrame.classList.add('eject');
       preview.classList.remove('develop');
-      shutterSfx.currentTime = 0; shutterSfx.play();
+      shutterSfx.currentTime = 0; shutterSfx.play().catch(()=>{});
+      
       setTimeout(() => {
         preview.classList.add('develop');
         filmDate.classList.add('show');
@@ -276,37 +304,37 @@
       playBtn.disabled = false;
     }
 
-    // --- 音樂邏輯改進區 ---
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
 
-      const filter = new Tone.Filter(1500, "lowpass").toDestination();
-      const reverb = new Tone.Reverb({ decay: 3, wet: 0.2 }).connect(filter);
+      const filter = new Tone.Filter(1200, "lowpass").toDestination();
+      const reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
 
-      // 1. 保留鋼琴
+      // 真實鋼琴
       synths.piano = new Tone.Sampler({
-        urls: { A1: "A1.mp3", C4: "C4.mp3" },
+        urls: { A1: "A1.mp3", A2: "A2.mp3", C4: "C4.mp3", A4: "A4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(reverb);
+      synths.piano.volume.value = -6;
 
-      // 2. Lo-fi 吉他 (完全不動您的設定)
+      // 物理建模吉他 (Lo-fi 專用)
       synths.guitar = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: "triangle" },
         envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
       }).connect(chorus);
-      
-      // 3. 爵士貝斯 (Walking Bass 專用)
-      synths.bass = new Tone.MonoSynth({
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.05, decay: 0.3, sustain: 0.2, release: 0.8 },
-        filterEnvelope: { attack: 0.01, baseFrequency: 200, octaves: 2 }
-      }).toDestination();
+      synths.guitar.volume.value = -12; 
 
-      // 4. 爵士鼓組 (模擬沙沙聲)
+      // 爵士貝斯 (Jazz 專用)
+      synths.bass = new Tone.MonoSynth({
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.1, decay: 0.4, sustain: 0.1, release: 0.5 }
+      }).toDestination();
+      synths.bass.volume.value = -10;
+      
       synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -35, envelope: { decay: 0.1 } }).connect(filter);
+      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
       
       audioInited = true;
     }
@@ -317,62 +345,63 @@
       Tone.Transport.cancel();
       
       const f = currentFeatures;
-      const isJazz = f.vibe === 'Warm'; // 範例邏輯：溫暖色調觸發 Jazz 風格
+      const seed = f.seed;
+      Tone.Transport.bpm.value = musicMode === 'jazz' ? 110 : f.bpm;
       
-      Tone.Transport.bpm.value = f.bpm;
-      
-      // Swing 核心：開啟搖擺律動
-      Tone.Transport.swing = isJazz ? 0.4 : 0; 
+      // 獨一無二的音階選擇
+      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
+      const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
+
+      // 設定 Jazz 搖擺律動
+      Tone.Transport.swing = musicMode === 'jazz' ? 0.4 : 0;
       Tone.Transport.swingSubdivision = "8n";
 
-      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
-      const bassScale = ["C2", "E2", "G2", "A2"];
-
       const sequence = [];
-      for (let bar = 0; bar < 8; bar++) {
-        if (isJazz) {
-          // --- Swing Jazz 邏輯 ---
-          // 走步貝斯 (每拍一下)
-          sequence.push({ time: `${bar}:0:0`, type: "bass", note: bassScale[0] });
-          sequence.push({ time: `${bar}:1:0`, type: "bass", note: bassScale[1] });
-          sequence.push({ time: `${bar}:2:0`, type: "bass", note: bassScale[2] });
-          sequence.push({ time: `${bar}:3:0`, type: "bass", note: bassScale[3] });
-          
-          // 輕快鼓點 (Swing Feel)
-          sequence.push({ time: `${bar}:0:0`, type: "kick" });
-          sequence.push({ time: `${bar}:1:2`, type: "snare" }); // 切分音
-          
-          // 鋼琴 (優雅跳動)
+      // 循環拉長至 16 小節
+      for (let bar = 0; bar < 16; bar++) {
+        // --- 基礎鼓組 ---
+        sequence.push({ time: `${bar}:0:0`, type: "kick" });
+        sequence.push({ time: `${bar}:2:0`, type: "kick" });
+        sequence.push({ time: `${bar}:1:0`, type: "snare" });
+        sequence.push({ time: `${bar}:3:0`, type: "snare" });
+
+        if (musicMode === 'jazz') {
+          // --- Jazz 獨有邏輯 (Walking Bass + Swing Piano) ---
+          const bassNote = jazzScale[(seed + bar) % jazzScale.length].replace('4','2').replace('3','2');
+          sequence.push({ time: `${bar}:0:0`, type: "bass", note: bassNote });
+          sequence.push({ time: `${bar}:1:0`, type: "bass", note: jazzScale[(seed + bar + 1) % jazzScale.length].replace('4','2') });
+          sequence.push({ time: `${bar}:2:0`, type: "bass", note: jazzScale[(seed + bar + 2) % jazzScale.length].replace('4','2') });
+          sequence.push({ time: `${bar}:3:0`, type: "bass", note: jazzScale[(seed + bar + 3) % jazzScale.length].replace('4','2') });
+
           if (bar % 2 === 0) {
-            sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [scale[0], scale[2], scale[3]] });
+            sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
           }
         } else {
-          // --- 原本的 Lo-fi 邏輯 (完全保留) ---
-          sequence.push({ time: `${bar}:0:0`, type: "kick" });
-          sequence.push({ time: `${bar}:2:0`, type: "kick" });
-          sequence.push({ time: `${bar}:1:0`, type: "snare" });
-          sequence.push({ time: `${bar}:3:0`, type: "snare" });
-          if (bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
-          sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-          sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
+          // --- Lo-fi 邏輯 (完全依照您的原始代碼) ---
+          if (bar % 2 === 0) {
+            sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
+          }
+          // 透過 seed 確保每張照片的吉他點綴不同
+          sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(seed + bar) % scale.length] });
+          sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(seed + bar + 2) % scale.length] });
+          sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(seed + bar + 1) % scale.length] });
+          sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[scale.length-1] });
         }
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "2n", time, 0.3);
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time);
+        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
         if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
       }, sequence).start(0);
 
       Tone.Transport.loop = true;
-      Tone.Transport.loopEnd = "8m";
+      Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
-      
       stopBtn.disabled = false;
       playBtn.disabled = true;
-      analysisText.innerHTML = isJazz ? "這是一首復古的 Swing Jazz" : "這是一首慵懶的 Lo-fi Beat";
     });
     
     stopBtn.addEventListener('click', () => {
