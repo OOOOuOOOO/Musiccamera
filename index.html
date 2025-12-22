@@ -322,57 +322,40 @@
       await initAudio();
       Tone.Transport.stop();
       Tone.Transport.cancel();
-      
       const f = currentFeatures;
       Tone.Transport.bpm.value = f.bpm;
-      
-      // 回歸原本的音階設定
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
 
       const sequence = [];
       for (let bar = 0; bar < 16; bar++) {
-        // --- 1. 鼓組 (完全還原你的原始設定) ---
+        // --- 1. 鼓組 (您的原始律動) ---
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
-        // --- 2. 鋼琴 (完全還原：每兩小節出現一次的長音) ---
+        // --- 2. 鋼琴 (您的原始長音結構) ---
         if (bar % 2 === 0) {
           sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
         }
 
-        // --- 3. 吉他旋律 (基於你的原始旋律邏輯，確保第一小節就出現) ---
-        // 這是你最喜歡的切分音節奏點
+        // --- 3. 吉他 (保留您的切分音位置，取消隨機，保證第一小節就響) ---
         sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
         sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
         sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        
-        // 稍微提高最後一拍的機率，讓音樂不冷場
-        if (Math.random() > 0.3) {
-          sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[scale.length-1] });
-        }
+        sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[scale.length-1] });
       }
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        
-        // 鋼琴彈奏 (還原你的 0.4 力度)
-        if (v.type === "piano") {
-          synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
-        }
-        
-        // 吉他彈奏 (提高力度至 0.7，確保清晰但不過脆)
-        if (v.type === "guitar") {
-          synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.7);
-        }
+        if (v.type === "piano") synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.6);
       }, sequence).start(0);
 
       Tone.Transport.loop = true;
       Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
-      
       stopBtn.disabled = false;
       playBtn.disabled = true;
     });
