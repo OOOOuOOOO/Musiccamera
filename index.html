@@ -303,13 +303,13 @@
         baseUrl: "https://tonejs.github.io/audio/salamander/",
         onload: () => { console.log("鋼琴加載完成"); }
       }).connect(reverb);
-      synths.piano.volume.value = -10; // 稍微降低鋼琴，讓出音場給吉他
+      synths.piano.volume.value = -6; // 稍微降低鋼琴，讓出音場給吉他
 
       // 4. 【調大音量】吉他 (Guitar)
       synths.guitar = new Tone.PolySynth(Tone.Synth, { 
         oscillator: { type: "sine" }, 
         envelope: { attack: 0.05, decay: 0.3, release: 1 }, 
-        volume: -5 // 這裡調大了，讓吉他聲變清晰
+        volume: -18 // 這裡調大了，讓吉他聲變清晰
       }).connect(reverb);
 
       // 5. 【調小音量】鼓組 (Drums)
