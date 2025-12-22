@@ -367,11 +367,21 @@ let currentFacingMode = "environment";
       Tone.Transport.bpm.value = f.bpm;
       synths.reverb.wet.value = info.reverb; 
 
+      // --- A. 黑膠與真空管環境音設定 (StreetVoice 質感) ---
       if (musicMode === 'lofi') {
-        const noiseLevel = (f.tag === 'Nostalgic' || f.tag === 'Static' || f.tag === 'Melancholy') ? -30 : -40;
-        synths.noise.volume.rampTo(noiseLevel, 2, "+0.1"); 
+        // 根據標籤決定雜訊深度：Nostalgic, Static, Melancholy 給予較大噪音
+        const noiseLevel = (['Nostalgic', 'Static', 'Melancholy', 'Lonely'].includes(f.tag)) ? -28 : -38;
+        synths.noise.volume.rampTo(noiseLevel, 2); 
+        
+        // 真空管濾波：亮度越低(Minor)，聲音越悶（距離感）
+        const filterFreq = f.mode === 'Minor' ? 800 : 1500;
+        const lofiFilter = new Tone.Filter(filterFreq, "lowpass").toDestination();
+        synths.piano.disconnect(); synths.piano.connect(lofiFilter);
+        synths.guitar.disconnect(); synths.guitar.connect(lofiFilter);
       } else {
-        synths.noise.volume.rampTo(-Infinity, 1, "+0.1"); 
+        synths.noise.volume.rampTo(-Infinity, 1);
+        synths.piano.disconnect(); synths.piano.connect(synths.reverb);
+        synths.guitar.disconnect(); synths.guitar.connect(synths.reverb);
       }
 
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
@@ -381,6 +391,7 @@ let currentFacingMode = "environment";
       const sequence = [];
 
       for (let bar = 0; bar < 16; bar++) {
+        // 節奏基底
         if (bar % 2 === 0 || info.density > 0.6) {
           sequence.push({ time: `${bar}:0:0`, type: "kick" });
           sequence.push({ time: `${bar}:2:0`, type: "kick" });
@@ -389,6 +400,7 @@ let currentFacingMode = "environment";
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
         if (musicMode === 'jazz') {
+          // --- B. 爵士模式 (保持原樣，不影響 Lofi) ---
           for (let beat = 0; beat < 4; beat++) {
             if (Math.random() < info.density + 0.2) {
               const note = jazzScale[(f.seed + bar + beat) % jazzScale.length].replace('4','2').replace('3','2');
@@ -396,33 +408,61 @@ let currentFacingMode = "environment";
             }
           }
           if (bar % 4 === 0) sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]] });
+
         } else {
-          if (bar % 4 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
-          const guitarDensity = info.density;
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[(f.seed + bar) % scale.length] });
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(f.seed + bar + 3) % scale.length] });
-          if (Math.random() < guitarDensity) sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[(f.seed + bar + 5) % scale.length] });
+          // --- C. LOFI 旋律基因演算法 ---
+          
+          // 1. 底層大提琴/鋼琴墊片 (和弦)
+          if (bar % 4 === 0) {
+            const chord = f.mode === 'Major' ? [scale[0], scale[2], scale[4]] : [scale[0], scale[1], scale[3]];
+            sequence.push({ time: `${bar}:0:0`, type: "piano", notes: chord, dur: "1n" });
+          }
+
+          // 2. 根據照片標籤觸發基因
+          const tag = f.tag;
+          
+          // 【基因 A：慵懶短句】 (Nostalgic, Cozy)
+          if (tag === 'Nostalgic' || tag === 'Cozy') {
+             if (bar % 2 === 0) {
+               sequence.push({ time: `${bar}:1:0`, type: "guitar", note: scale[bar % 3], dur: "8n" });
+               sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[(bar+1) % 5], dur: "2n" }); // 最後一音拉長
+             }
+          } 
+          // 【基因 B：爵士流動】 (Urban, Tense)
+          else if (tag === 'Urban' || tag === 'Tense') {
+             for (let i = 0; i < 4; i++) {
+               if (Math.random() < 0.6) {
+                 const note = scale[(f.seed + bar + i) % scale.length];
+                 sequence.push({ time: `${bar}:${i}:0.1`, type: "guitar", note: note, dur: "16n" });
+               }
+             }
+          }
+          // 【基因 C：極簡留白】 (Lonely, Static, Melancholy)
+          else if (tag === 'Lonely' || tag === 'Static' || tag === 'Melancholy') {
+             if (bar % 4 === 2) { // 兩小節才出現一次
+               sequence.push({ time: `${bar}:0:0`, type: "guitar", note: scale[4], dur: "1n" });
+             }
+          }
+          // 【基因 D：和弦分解】 (Bright, Energetic, Dreamy)
+          else {
+             [0, 1, 2, 3].forEach(i => {
+               sequence.push({ time: `${bar}:${i}:0`, type: "guitar", note: scale[i % scale.length], dur: "4n" });
+             });
+          }
         }
       }
 
-      new Tone.Part((time, v) => {
+      activePart = new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time, 0.4);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
+        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, v.dur || "1n", time, 0.3);
+        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, v.dur || "2n", time, 0.3);
       }, sequence).start(0);
 
       Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
       stopBtn.disabled = false; playBtn.disabled = true;
-    });
-    
-    stopBtn.addEventListener('click', () => { 
-      Tone.Transport.stop(); 
-      if(synths.noise) synths.noise.volume.rampTo(-Infinity, 0.5); 
-      playBtn.disabled = false; 
-      stopBtn.disabled = true; 
     });
 
     // --- 新增：影片錄製功能 ---
