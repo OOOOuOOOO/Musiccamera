@@ -78,7 +78,6 @@
       background: #000; border-radius: 5px; box-shadow: 0 1px 1px #fff;
     }
 
-    /* 拍立得照片與日期樣式 */
     .polaroid-film {
       width: 220px; background: #fff; padding: 10px 10px 45px 10px; 
       box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute;
@@ -195,9 +194,9 @@
 
     let stream = null;
     let audioInited = false;
-    let currentFeatures = null;
+    let currentFeatures = { bpm: 80, mode: 'Major', brightness: 0.5 };
     let synths = {};
-    let asmrSynths = {}; // 新增：存放 ASMR
+    let asmrSynths = {};
 
     async function startCamera() {
       try {
@@ -244,9 +243,8 @@
         currentFeatures = { 
           mode: (bri/100) > 125 ? 'Major' : 'Minor',
           brightness: (bri/100) / 255,
-          bpm: 86 + Math.floor(((bri/100)/255) * 12)
+          bpm: 80 + Math.floor(((bri/100)/255) * 20)
         };
-
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
       };
@@ -257,20 +255,16 @@
       const dateString = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
       filmDate.innerText = dateString;
       filmDate.classList.remove('show');
-
       polaroidFrame.classList.remove('eject');
       void polaroidFrame.offsetWidth;
       polaroidFrame.classList.add('eject');
       preview.classList.remove('develop');
       shutterSfx.currentTime = 0; shutterSfx.play();
-      
-      setTimeout(() => {
-        preview.classList.add('develop');
-        filmDate.classList.add('show');
-      }, 100);
+      setTimeout(() => { preview.classList.add('develop'); filmDate.classList.add('show'); }, 100);
       playBtn.disabled = false;
     }
 
+    // --- 音樂初始化修復 ---
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
@@ -279,38 +273,39 @@
       const reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
       const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
 
-      // 黑膠雜音
+      // 1. 黑膠
       const vinylNoise = new Tone.Noise("pink").start();
       vinylNoise.volume.value = -48;
       vinylNoise.connect(new Tone.Filter(1000, "bandpass").toDestination());
 
-      // 鋼琴 (維持數值 -6)
+      // 2. 鋼琴 (增加回退音色保護)
+      synths.pianoBackup = new Tone.PolySynth(Tone.Synth, { volume: -10 }).connect(reverb);
       synths.piano = new Tone.Sampler({
-        urls: { A1: "A1.mp3", A2: "A2.mp3", C4: "C4.mp3", A4: "A4.mp3" },
+        urls: { A1: "A1.mp3", A4: "A4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
+        onload: () => console.log("鋼琴採樣已就緒")
       }).connect(reverb);
       synths.piano.volume.value = -6;
 
-      // 吉他 (維持數值 -12)
+      // 3. 吉他 (物理建模，不需外部資源)
       synths.guitar = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: "triangle" },
         envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
       }).connect(chorus);
       synths.guitar.volume.value = -12; 
       
-      // 鼓組
+      // 4. 鼓組
       synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
       synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
       synths.hihat = new Tone.MetalSynth({ volume: -40 }).connect(filter);
 
-      // ASMR 生成器 (現場合成)
+      // 5. ASMR
       asmrSynths.rain = new Tone.Noise("white").connect(new Tone.Filter(800, "lowpass").toDestination());
       asmrSynths.rain.volume.value = -99;
       asmrSynths.rain.start();
-
       asmrSynths.wind = new Tone.AutoFilter("1n", 400, 4).connect(new Tone.Noise("pink").start()).toDestination();
       asmrSynths.wind.volume.value = -99;
-      
+
       audioInited = true;
     }
 
@@ -319,19 +314,19 @@
       Tone.Transport.stop();
       Tone.Transport.cancel();
       
+      // 強制喚醒所有樂器 (預防瀏覽器攔截)
+      synths.guitar.triggerAttackRelease("C4", "16n", "+0.01", 0.01);
+      synths.kick.triggerAttackRelease("C1", "16n", "+0.01", 0.01);
+
       const f = currentFeatures;
       Tone.Transport.bpm.value = f.bpm;
       const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
 
-      // ASMR 切換邏輯
+      // ASMR 切換
       asmrSynths.rain.volume.rampTo(-99, 1);
       asmrSynths.wind.volume.rampTo(-99, 1);
-      if (f.brightness < 0.45) {
-        asmrSynths.rain.volume.rampTo(-32, 3); // 陰暗照配雨聲
-      } else {
-        asmrSynths.wind.start();
-        asmrSynths.wind.volume.rampTo(-28, 3); // 明亮照配風聲
-      }
+      if (f.brightness < 0.45) asmrSynths.rain.volume.rampTo(-32, 3);
+      else { asmrSynths.wind.start(); asmrSynths.wind.volume.rampTo(-28, 3); }
 
       const sequence = [];
       for (let bar = 0; bar < 16; bar++) {
@@ -339,10 +334,7 @@
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
-
-        if (bar % 2 === 0) {
-          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
-        }
+        if (bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
         sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
         sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
         sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
@@ -352,7 +344,11 @@
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "piano" && synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
+        if (v.type === "piano") {
+          // 雙重保險：如果高品質鋼琴還沒好，就用普通鋼琴發聲，絕不留白
+          if (synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
+          else synths.pianoBackup.triggerAttackRelease(v.notes, "1n", time, 0.2);
+        }
         if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
       }, sequence).start(0);
 
@@ -365,10 +361,7 @@
     
     stopBtn.addEventListener('click', () => {
       Tone.Transport.stop();
-      if(audioInited) {
-        asmrSynths.rain.volume.rampTo(-99, 1);
-        asmrSynths.wind.volume.rampTo(-99, 1);
-      }
+      if(audioInited) { asmrSynths.rain.volume.rampTo(-99, 1); asmrSynths.wind.volume.rampTo(-99, 1); }
       playBtn.disabled = false;
       stopBtn.disabled = true;
     });
