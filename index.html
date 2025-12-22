@@ -1,370 +1,348 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <title>Music Camera - Memory Edition</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ASMR Soundscape (No Sample Library)</title>
+  <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700&family=Noto+Serif+TC:wght@600&family=Nanum+Pen+Script&display=swap');
-    
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      background: #e0e0e0; font-family: 'DM Sans', sans-serif;
+    body{
+      margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif;
+      background: radial-gradient(circle at 30% 10%, #1b2230, #0b0f14 55%, #070a0e 100%);
+      color:#e5e7eb;
+      padding:24px;
     }
-
-    /* --- 擬物化機身外觀 --- */
-    .camera-container {
-      width: 380px; background: linear-gradient(180deg, #e8e8e8 0%, #d1d1d1 100%);
-      border-radius: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 1px 2px #fff;
-      position: relative; overflow: hidden; border: 1px solid #b5b5b5;
+    .card{
+      width:min(720px, 96vw);
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:18px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.35);
     }
-
-    .camera-top {
-      height: 70px; background: #9d6d48;
-      background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-      background-size: 4px 4px; border-bottom: 2px solid #7d5233;
-      display: flex; align-items: center; justify-content: center;
+    h1{ margin:0 0 10px; font-size:18px; letter-spacing:.06em; }
+    .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+    button{
+      padding:10px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.08); color:#fff; cursor:pointer; font-weight:700;
     }
-    .leather-stitch {
-      width: 90%; height: 45px; border: 1px dashed rgba(255,255,255,0.3);
-      border-radius: 10px; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    button:disabled{ opacity:.45; cursor:not-allowed; }
+    .ctrl{
+      flex: 1 1 220px;
+      background: rgba(0,0,0,.20);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:12px;
     }
-
-    .brand-bar {
-      padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
-      color: #555; font-size: 14px; font-weight: bold;
-    }
-    .red-dot {
-      width: 14px; height: 14px; background: radial-gradient(circle at 30% 30%, #ff7e7e, #b30000);
-      border-radius: 50%; display: inline-block; margin-right: 8px;
-    }
-
-    .control-center {
-      margin: 0 15px; background: #1a1a1a; border-radius: 20px; padding: 25px 20px;
-      box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 1px 1px #fff; color: #fff; text-align: center;
-    }
-
-    .main-btn {
-      width: 100%; height: 50px; background: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
-      border-radius: 25px; border: none; color: #1a1a1a; font-size: 18px; font-weight: 800;
-      cursor: pointer; margin-bottom: 12px; box-shadow: 0 4px 0 #999, 0 8px 15px rgba(0,0,0,0.4);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .main-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #999; }
-
-    .sub-btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
-    .sub-btn {
-      flex: 1; height: 40px; background: linear-gradient(180deg, #333 0%, #222 100%);
-      border-radius: 20px; border: 1px solid #444; color: #777; font-weight: bold; cursor: pointer;
-    }
-    .sub-btn:enabled { color: #fff; }
-
-    .analysis-text {
-      font-family: 'Noto Serif TC', serif; font-size: 16px; color: #fff;
-      margin: 15px 0 5px; min-height: 24px; line-height: 1.6; letter-spacing: 2px;
-    }
-
-    .eject-slot-container {
-      margin: 20px 15px 25px; padding: 15px; background: #bababa; border-radius: 15px;
-      box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); 
-      min-height: 300px; position: relative; overflow: hidden; display: flex; justify-content: center;
-    }
-    .black-exit-line {
-      position: absolute; bottom: 15px; width: 92%; height: 10px;
-      background: #000; border-radius: 5px; box-shadow: 0 1px 1px #fff;
-    }
-
-    .polaroid-film {
-      width: 220px; background: #fff; padding: 10px 10px 45px 10px; 
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: absolute;
-      transform: translateY(150%); transition: transform 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67); z-index: 10;
-    }
-    .polaroid-film.eject { transform: translateY(5%); }
-    .film-inner {
-      width: 100%; aspect-ratio: 1; background: #222; overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
-      position: relative;
-    }
-    #preview { width: 100%; height: 100%; object-fit: contain; opacity: 0; }
-    
-    #preview.develop { 
-      opacity: 1; 
-      transition: opacity 3.5s; 
-      filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2);
-    }
-
-    .film-inner::after {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(135deg, 
-        rgba(255, 80, 0, 0.45) 0%, 
-        rgba(255, 150, 50, 0.2) 35%, 
-        transparent 70%
-      );
-      pointer-events: none;
-      mix-blend-mode: screen; 
-      opacity: 0;
-    }
-
-    .polaroid-film.eject .film-inner::after {
-      opacity: 1;
-      transition: opacity 4s 1s; 
-    }
-    
-    .film-date {
-      position: absolute; bottom: 12px; right: 15px;
-      font-family: 'Nanum Pen Script', cursive;
-      font-size: 20px; color: #444; opacity: 0;
-    }
-    .film-date.show { opacity: 1; transition: opacity 2s 1.5s; }
-
-    #cameraOverlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000;
-    }
-    #videoPreview { width: 100%; max-width: 100%; max-height: 70vh; object-fit: contain; }
-    .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
-    .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; }
-
-    #canvas { display: none; }
+    label{ display:flex; justify-content:space-between; font-size:12px; color:rgba(229,231,235,.8); }
+    input[type="range"]{ width:100%; margin-top:8px; }
+    .hint{ margin-top:10px; font-size:12px; color:rgba(229,231,235,.72); line-height:1.5; }
+    .badge{ font-size:12px; opacity:.75; }
   </style>
 </head>
 <body>
+  <div class="card">
+    <h1>簡易 ASMR 音景：黑膠 + 雨聲 + 隨機耳語（無音源庫）</h1>
+    <div class="badge">Tone.js 合成｜建議戴耳機（左右耳擺動效果會更明顯）</div>
 
-  <div class="camera-container">
-    <div class="camera-top"><div class="leather-stitch"></div></div>
-    <div class="brand-bar">
-      <div><span class="red-dot"></span>MUSIC CAMERA 聽見風景</div>
-      <div style="width:35px; height:15px; background:linear-gradient(to right, #ddd, #fff, #ddd); border-radius:10px; border:1px solid #aaa;"></div>
+    <div class="row">
+      <button id="startBtn">Start</button>
+      <button id="stopBtn" disabled>Stop</button>
     </div>
 
-    <div class="control-center">
-      <button class="main-btn" id="openCamBtn">SHOOT / LOAD</button>
-      <div class="sub-btn-group">
-        <button class="sub-btn" id="playBtn" disabled>PLAY</button>
-        <button class="sub-btn" id="stopBtn" disabled>STOP</button>
+    <div class="row">
+      <div class="ctrl">
+        <label><span>Vinyl（黑膠底噪）</span><span id="vinylVal">0.18</span></label>
+        <input id="vinyl" type="range" min="0" max="0.6" step="0.01" value="0.18">
       </div>
-      <div class="analysis-text" id="analysisText">每個回憶，都是一段獨一無二的旋律</div>
+      <div class="ctrl">
+        <label><span>Rain（雨聲）</span><span id="rainVal">0.28</span></label>
+        <input id="rain" type="range" min="0" max="0.9" step="0.01" value="0.28">
+      </div>
+      <div class="ctrl">
+        <label><span>Whisper（耳語氣音）</span><span id="whisperVal">0.20</span></label>
+        <input id="whisper" type="range" min="0" max="0.8" step="0.01" value="0.20">
+      </div>
     </div>
 
-    <div class="eject-slot-container">
-      <div class="polaroid-film" id="polaroidFrame">
-        <div class="film-inner"><img id="preview" alt="Snapshot"/></div>
-        <div class="film-date" id="filmDate"></div>
+    <div class="row">
+      <div class="ctrl">
+        <label><span>Warmth（溫暖度 / 濾波）</span><span id="warmVal">0.55</span></label>
+        <input id="warm" type="range" min="0" max="1" step="0.01" value="0.55">
       </div>
-      <div class="black-exit-line"></div>
+      <div class="ctrl">
+        <label><span>Space（空間感 / Reverb）</span><span id="spaceVal">0.35</span></label>
+        <input id="space" type="range" min="0" max="0.75" step="0.01" value="0.35">
+      </div>
+      <div class="ctrl">
+        <label><span>Motion（左右飄移）</span><span id="motionVal">0.45</span></label>
+        <input id="motion" type="range" min="0" max="1" step="0.01" value="0.45">
+      </div>
+    </div>
+
+    <div class="hint">
+      這版「耳語」不是可辨識語句，而是<strong>耳語質感的氣音</strong>：帶通濾波 + 隨機音量包絡 + 左右聲道擺動。<br>
+      你之後如果有耳語音檔（mp3/wav），我可以幫你做成「隨機抽取 + 近距離左右耳」的真正 ASMR 版本。
     </div>
   </div>
 
-  <div id="cameraOverlay">
-    <video id="videoPreview" autoplay playsinline></video>
-    <div class="overlay-controls">
-      <button id="albumBtn" style="background:#444; color:#fff; border:none; padding:10px 20px; border-radius:20px;">相簿</button>
-      <button class="snap-trigger" id="snapBtn"></button>
-      <button id="closeOverlay" style="color:white; background:none; border:none; cursor:pointer;">✕</button>
-    </div>
-  </div>
-  
-  <input type="file" id="fileInput" accept="image/*" style="display:none;">
-  <canvas id="canvas"></canvas>
-  <audio id="shutterSfx" src="polaroid-shutter.mp3"></audio>
+<script>
+  // ===== UI helpers =====
+  const $ = (id) => document.getElementById(id);
+  function bindLabel(rangeId, labelId){
+    const r = $(rangeId), l = $(labelId);
+    l.textContent = Number(r.value).toFixed(2);
+    r.addEventListener("input", () => l.textContent = Number(r.value).toFixed(2));
+  }
+  bindLabel("vinyl", "vinylVal");
+  bindLabel("rain", "rainVal");
+  bindLabel("whisper", "whisperVal");
+  bindLabel("warm", "warmVal");
+  bindLabel("space", "spaceVal");
+  bindLabel("motion", "motionVal");
 
-  <script>
-    const openCamBtn = document.getElementById('openCamBtn');
-    const cameraOverlay = document.getElementById('cameraOverlay');
-    const videoPreview = document.getElementById('videoPreview');
-    const snapBtn = document.getElementById('snapBtn');
-    const albumBtn = document.getElementById('albumBtn');
-    const fileInput = document.getElementById('fileInput');
-    const closeOverlay = document.getElementById('closeOverlay');
-    const preview = document.getElementById('preview');
-    const polaroidFrame = document.getElementById('polaroidFrame');
-    const analysisText = document.getElementById('analysisText');
-    const playBtn = document.getElementById('playBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const filmDate = document.getElementById('filmDate');
-    const shutterSfx = document.getElementById('shutterSfx');
-    const canvas = document.getElementById('canvas');
+  // ===== Audio graph (created on Start) =====
+  let started = false;
 
-    let stream = null;
-    let audioInited = false;
-    let currentFeatures = { bpm: 80, mode: 'Major', brightness: 0.5 };
-    let synths = {};
-    let asmrSynths = {};
+  let master, comp, toneLP, rev;
+  let vinylNoise, vinylBP, vinylGain, vinylLfo;
+  let rainNoise, rainHP, rainBP, rainGain, rainBurst;
+  let whisperNoise, whisperBP1, whisperBP2, whisperGain, whisperEnv, whisperPan, whisperPanLfo;
+  let motionPan, motionLfo;
 
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        videoPreview.srcObject = stream;
-        cameraOverlay.style.display = 'flex';
-      } catch (e) { fileInput.click(); }
-    }
-    function stopCamera() {
-      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-      cameraOverlay.style.display = 'none';
-    }
-    openCamBtn.addEventListener('click', startCamera);
-    closeOverlay.addEventListener('click', stopCamera);
-    albumBtn.addEventListener('click', () => fileInput.click());
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+  function lerp(a,b,t){ return a + (b-a)*t; }
 
-    snapBtn.addEventListener('click', () => {
-      const ctx = canvas.getContext('2d');
-      canvas.width = videoPreview.videoWidth;
-      canvas.height = videoPreview.videoHeight;
-      ctx.drawImage(videoPreview, 0, 0);
-      preview.src = canvas.toDataURL('image/jpeg');
-      stopCamera();
-      analyzePhoto();
-    });
+  async function start(){
+    if(started) return;
+    started = true;
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => { preview.src = ev.target.result; stopCamera(); analyzePhoto(); };
-      reader.readAsDataURL(file);
-    });
+    await Tone.start();
 
-    function analyzePhoto() {
-      preview.onload = () => {
-        const ctx = canvas.getContext('2d');
-        canvas.width = 10; canvas.height = 10;
-        ctx.drawImage(preview, 0, 0, 10, 10);
-        const data = ctx.getImageData(0, 0, 10, 10).data;
-        let r=0, g=0, b=0, bri=0;
-        for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
-        
-        currentFeatures = { 
-          mode: (bri/100) > 125 ? 'Major' : 'Minor',
-          brightness: (bri/100) / 255,
-          bpm: 80 + Math.floor(((bri/100)/255) * 20)
-        };
-        analysisText.innerHTML = `讓音樂完整回憶`;
-        triggerEject();
-      };
-    }
+    // Master chain
+    master = new Tone.Gain(0.85).toDestination();
+    comp   = new Tone.Compressor(-22, 3).connect(master);
 
-    function triggerEject() {
-      const now = new Date();
-      const dateString = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-      filmDate.innerText = dateString;
-      filmDate.classList.remove('show');
-      polaroidFrame.classList.remove('eject');
-      void polaroidFrame.offsetWidth;
-      polaroidFrame.classList.add('eject');
-      preview.classList.remove('develop');
-      shutterSfx.currentTime = 0; shutterSfx.play();
-      setTimeout(() => { preview.classList.add('develop'); filmDate.classList.add('show'); }, 100);
-      playBtn.disabled = false;
-    }
+    // Warmth filter (will be controlled)
+    toneLP = new Tone.Filter({ type:"lowpass", frequency: 4200, rolloff: -12, Q: 0.35 }).connect(comp);
 
-    // --- 音樂初始化修復 ---
-    async function initAudio() {
-      if (audioInited) return;
-      await Tone.start();
+    // Reverb (space)
+    rev = new Tone.Reverb({ decay: 7.5, preDelay: 0.02, wet: 0.35 }).connect(toneLP);
 
-      const filter = new Tone.Filter(1200, "lowpass").toDestination();
-      const reverb = new Tone.Reverb({ decay: 4, wet: 0.3 }).connect(filter);
-      const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb).start(); 
+    // Global motion (subtle stereo drift)
+    motionPan = new Tone.Panner(0).connect(rev);
+    motionLfo = new Tone.LFO({ frequency: 0.06, min: -0.35, max: 0.35 }).start();
+    motionLfo.connect(motionPan.pan);
 
-      // 1. 黑膠
-      const vinylNoise = new Tone.Noise("pink").start();
-      vinylNoise.volume.value = -48;
-      vinylNoise.connect(new Tone.Filter(1000, "bandpass").toDestination());
+    // -------------------------
+    // 1) Vinyl noise (pink + bandpass + slow flutter)
+    // -------------------------
+    vinylNoise = new Tone.Noise("pink");
+    vinylBP = new Tone.Filter({ type:"bandpass", frequency: 1800, Q: 0.8 });
+    const vinylHissLP = new Tone.Filter({ type:"lowpass", frequency: 5200, Q: 0.3 });
 
-      // 2. 鋼琴 (增加回退音色保護)
-      synths.pianoBackup = new Tone.PolySynth(Tone.Synth, { volume: -10 }).connect(reverb);
-      synths.piano = new Tone.Sampler({
-        urls: { A1: "A1.mp3", A4: "A4.mp3" },
-        baseUrl: "https://tonejs.github.io/audio/salamander/",
-        onload: () => console.log("鋼琴採樣已就緒")
-      }).connect(reverb);
-      synths.piano.volume.value = -6;
+    vinylGain = new Tone.Gain(0.18).connect(motionPan);
 
-      // 3. 吉他 (物理建模，不需外部資源)
-      synths.guitar = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.02, decay: 0.8, sustain: 0.1, release: 1.2 }
-      }).connect(chorus);
-      synths.guitar.volume.value = -12; 
-      
-      // 4. 鼓組
-      synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(filter);
-      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(filter);
-      synths.hihat = new Tone.MetalSynth({ volume: -40 }).connect(filter);
+    vinylNoise.connect(vinylBP);
+    vinylBP.connect(vinylHissLP);
+    vinylHissLP.connect(vinylGain);
 
-      // 5. ASMR
-      asmrSynths.rain = new Tone.Noise("white").connect(new Tone.Filter(800, "lowpass").toDestination());
-      asmrSynths.rain.volume.value = -99;
-      asmrSynths.rain.start();
-      asmrSynths.wind = new Tone.AutoFilter("1n", 400, 4).connect(new Tone.Noise("pink").start()).toDestination();
-      asmrSynths.wind.volume.value = -99;
+    // subtle level flutter
+    vinylLfo = new Tone.LFO({ frequency: 0.12, min: 0.10, max: 0.22 }).start();
+    vinylLfo.connect(vinylGain.gain);
 
-      audioInited = true;
-    }
+    // add tiny crackles via short noise bursts
+    const crackle = new Tone.Noise("white");
+    const crackleBP = new Tone.Filter({ type:"bandpass", frequency: 3200, Q: 2.5 });
+    const crackleGain = new Tone.Gain(0.00).connect(motionPan);
+    crackle.connect(crackleBP);
+    crackleBP.connect(crackleGain);
 
-    playBtn.addEventListener('click', async () => {
-      await initAudio();
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
-      
-      // 強制喚醒所有樂器 (預防瀏覽器攔截)
-      synths.guitar.triggerAttackRelease("C4", "16n", "+0.01", 0.01);
-      synths.kick.triggerAttackRelease("C1", "16n", "+0.01", 0.01);
+    const crackleEnv = new Tone.AmplitudeEnvelope({
+      attack: 0.001, decay: 0.02, sustain: 0.0, release: 0.03
+    }).connect(crackleGain);
 
-      const f = currentFeatures;
-      Tone.Transport.bpm.value = f.bpm;
-      const scale = f.mode === 'Major' ? ["C4", "D4", "E4", "G4", "A4"] : ["A3", "C4", "D4", "E4", "G4"];
+    crackle.start();
 
-      // ASMR 切換
-      asmrSynths.rain.volume.rampTo(-99, 1);
-      asmrSynths.wind.volume.rampTo(-99, 1);
-      if (f.brightness < 0.45) asmrSynths.rain.volume.rampTo(-32, 3);
-      else { asmrSynths.wind.start(); asmrSynths.wind.volume.rampTo(-28, 3); }
-
-      const sequence = [];
-      for (let bar = 0; bar < 16; bar++) {
-        sequence.push({ time: `${bar}:0:0`, type: "kick" });
-        sequence.push({ time: `${bar}:2:0`, type: "kick" });
-        sequence.push({ time: `${bar}:1:0`, type: "snare" });
-        sequence.push({ time: `${bar}:3:0`, type: "snare" });
-        if (bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0], scale[2]] });
-        sequence.push({ time: `${bar}:0:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        sequence.push({ time: `${bar}:1:2`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        sequence.push({ time: `${bar}:2:1`, type: "guitar", note: scale[Math.floor(Math.random()*scale.length)] });
-        sequence.push({ time: `${bar}:3:2`, type: "guitar", note: scale[scale.length-1] });
+    // schedule crackles
+    const crackleLoop = new Tone.Loop((time)=>{
+      const prob = 0.35;
+      if(Math.random() < prob){
+        const amt = 0.02 + Math.random()*0.04;
+        crackleGain.gain.setValueAtTime(amt, time);
+        crackleEnv.triggerAttackRelease(0.05, time);
       }
+    }, "8n").start(0);
 
-      new Tone.Part((time, v) => {
-        if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
-        if (v.type === "snare") synths.snare.triggerAttack(time);
-        if (v.type === "piano") {
-          // 雙重保險：如果高品質鋼琴還沒好，就用普通鋼琴發聲，絕不留白
-          if (synths.piano.loaded) synths.piano.triggerAttackRelease(v.notes, "1n", time, 0.4);
-          else synths.pianoBackup.triggerAttackRelease(v.notes, "1n", time, 0.2);
-        }
-        if (v.type === "guitar") synths.guitar.triggerAttackRelease(v.note, "2n", time, 0.4);
-      }, sequence).start(0);
+    // -------------------------
+    // 2) Rain (white noise shaped + random droplets)
+    // -------------------------
+    rainNoise = new Tone.Noise("white");
 
-      Tone.Transport.loop = true;
-      Tone.Transport.loopEnd = "16m";
-      Tone.Transport.start("+0.1");
-      stopBtn.disabled = false;
-      playBtn.disabled = true;
+    // highpass to remove rumble, bandpass to shape "rain"
+    rainHP = new Tone.Filter({ type:"highpass", frequency: 900, Q: 0.4 });
+    rainBP = new Tone.Filter({ type:"bandpass", frequency: 3200, Q: 0.55 });
+
+    rainGain = new Tone.Gain(0.28).connect(motionPan);
+
+    rainNoise.connect(rainHP);
+    rainHP.connect(rainBP);
+    rainBP.connect(rainGain);
+
+    // droplets: short bursts with random stereo micro-pan
+    const drop = new Tone.Noise("white");
+    const dropBP = new Tone.Filter({ type:"bandpass", frequency: 5200, Q: 1.2 });
+    const dropEnv = new Tone.AmplitudeEnvelope({
+      attack: 0.001, decay: 0.03, sustain: 0.0, release: 0.05
     });
-    
-    stopBtn.addEventListener('click', () => {
-      Tone.Transport.stop();
-      if(audioInited) { asmrSynths.rain.volume.rampTo(-99, 1); asmrSynths.wind.volume.rampTo(-99, 1); }
-      playBtn.disabled = false;
-      stopBtn.disabled = true;
+
+    const dropPan = new Tone.Panner(0).connect(rev);
+    const dropGain = new Tone.Gain(0.0).connect(dropEnv);
+    drop.connect(dropBP);
+    dropBP.connect(dropGain);
+    dropEnv.connect(dropPan);
+    drop.start();
+
+    rainBurst = new Tone.Loop((time)=>{
+      // density depends on rain level
+      const level = Number($("rain").value);
+      const density = lerp(0.25, 0.95, clamp(level/0.9, 0, 1));
+      if(Math.random() < density){
+        const pan = (Math.random()*2-1) * 0.6;
+        dropPan.pan.setValueAtTime(pan, time);
+        const amt = 0.01 + Math.random()*0.05 + level*0.03;
+        dropGain.gain.setValueAtTime(amt, time);
+        dropEnv.triggerAttackRelease(0.08, time);
+      }
+    }, "16n").start(0);
+
+    // -------------------------
+    // 3) Whisper-like texture (no sample): breath noise + formant-ish filters + random envelopes
+    // -------------------------
+    whisperNoise = new Tone.Noise("pink");
+
+    // two bandpasses create a "vocal tract" vibe (formant-ish)
+    whisperBP1 = new Tone.Filter({ type:"bandpass", frequency: 900, Q: 5.0 });
+    whisperBP2 = new Tone.Filter({ type:"bandpass", frequency: 2400, Q: 7.0 });
+
+    whisperEnv = new Tone.AmplitudeEnvelope({
+      attack: 0.02, decay: 0.35, sustain: 0.0, release: 0.25
     });
-  </script>
+
+    whisperGain = new Tone.Gain(0.20).connect(whisperEnv);
+
+    // stereo panner dedicated to whisper (closer ASMR feel)
+    whisperPan = new Tone.Panner(0).connect(rev);
+
+    whisperNoise.connect(whisperBP1);
+    whisperBP1.connect(whisperBP2);
+    whisperBP2.connect(whisperGain);
+    whisperEnv.connect(whisperPan);
+
+    // whisper pan slow LFO
+    whisperPanLfo = new Tone.LFO({ frequency: 0.09, min: -0.85, max: 0.85 }).start();
+    whisperPanLfo.connect(whisperPan.pan);
+
+    // random "ear whisper" events
+    const whisperLoop = new Tone.Loop((time)=>{
+      const level = Number($("whisper").value);
+      const prob = lerp(0.08, 0.35, clamp(level/0.8,0,1));
+      if(Math.random() < prob){
+        // randomly shift formants
+        const f1 = 650 + Math.random()*850;     // 650~1500
+        const f2 = 1600 + Math.random()*1700;   // 1600~3300
+        whisperBP1.frequency.setValueAtTime(f1, time);
+        whisperBP2.frequency.setValueAtTime(f2, time);
+
+        // vary event length
+        const dur = 0.10 + Math.random()*0.40;
+
+        // set gain amount (depends on level)
+        const amt = (0.02 + Math.random()*0.10) * (0.6 + level);
+        whisperGain.gain.setValueAtTime(amt, time);
+
+        whisperEnv.triggerAttackRelease(dur, time);
+      }
+    }, "8n").start(0);
+
+    // Start noises & transport
+    vinylNoise.start();
+    rainNoise.start();
+    whisperNoise.start();
+
+    Tone.Transport.start();
+
+    // Hook UI controls
+    applyAllControls();
+    attachControlListeners();
+
+    $("startBtn").disabled = true;
+    $("stopBtn").disabled = false;
+  }
+
+  function stop(){
+    if(!started) return;
+    started = false;
+
+    try{ Tone.Transport.stop(); Tone.Transport.cancel(); }catch(_){}
+
+    // dispose everything
+    const nodes = [
+      master, comp, toneLP, rev,
+      motionPan, motionLfo,
+
+      vinylNoise, vinylBP, vinylGain, vinylLfo,
+      rainNoise, rainHP, rainBP, rainGain, rainBurst,
+
+      whisperNoise, whisperBP1, whisperBP2, whisperGain, whisperEnv, whisperPan, whisperPanLfo
+    ];
+    nodes.forEach(n => { try{ n && n.dispose(); }catch(_){ } });
+
+    $("startBtn").disabled = false;
+    $("stopBtn").disabled = true;
+  }
+
+  function applyAllControls(){
+    // volumes
+    if(vinylGain) vinylGain.gain.value = Number($("vinyl").value);
+    if(rainGain)  rainGain.gain.value  = Number($("rain").value);
+    if(whisperGain) whisperGain.gain.value = Number($("whisper").value);
+
+    // warmth -> lowpass cutoff
+    if(toneLP){
+      const w = Number($("warm").value);
+      const cutoff = lerp(2200, 8000, w);
+      toneLP.frequency.rampTo(cutoff, 0.2);
+    }
+
+    // space -> reverb wet
+    if(rev){
+      const s = Number($("space").value);
+      rev.wet.rampTo(s, 0.2);
+    }
+
+    // motion -> pan amount
+    if(motionLfo){
+      const m = Number($("motion").value);
+      motionLfo.min = -0.35 * m;
+      motionLfo.max =  0.35 * m;
+    }
+    if(whisperPanLfo){
+      const m = Number($("motion").value);
+      whisperPanLfo.min = -0.85 * m;
+      whisperPanLfo.max =  0.85 * m;
+    }
+  }
+
+  function attachControlListeners(){
+    ["vinyl","rain","whisper","warm","space","motion"].forEach(id=>{
+      $(id).addEventListener("input", applyAllControls);
+    });
+  }
+
+  $("startBtn").addEventListener("click", start);
+  $("stopBtn").addEventListener("click", stop);
+</script>
 </body>
 </html>
