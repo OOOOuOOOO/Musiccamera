@@ -74,7 +74,6 @@
     }
     .sub-btn:enabled { color: #fff; }
 
-    /* 錄影按鈕特殊樣式 */
     #recBtn.recording {
       background: #b30000;
       color: #fff;
@@ -155,7 +154,6 @@
     .overlay-controls { margin-top: 30px; display: flex; align-items: center; gap: 40px; }
     .snap-trigger { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 5px solid #9d6d48; cursor: pointer;}
 
-    /* 隱藏錄製用的 Canvas */
     #recordCanvas { display: none; }
     #canvas { display: none; }
   </style>
@@ -234,8 +232,8 @@
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
     let mediaRecorder, recordedChunks = [];
 
-    // --- 進階功能 A：LO-FI 五種氣氛噪音音源 ---
-    const ambientMap = {
+    // --- LO-FI 五種氣氛噪音清單 ---
+    const ambientUrls = {
       'Vinyl': "https://raw.githubusercontent.com/Tonejs/audio/master/noise/vinyl.mp3",
       'Rain': "https://actions.google.com/sounds/v1/ambiences/rain_on_roof.ogg",
       'Forest': "https://actions.google.com/sounds/v1/ambiences/forest_morning_birds.ogg",
@@ -334,28 +332,28 @@
       recBtn.disabled = false;
     }
 
-    // --- 進階功能 B：Web Audio 引擎優化 (StreetVoice 風格) ---
+    // --- 音頻初始化（修正載入依賴） ---
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
       
       const masterFilter = new Tone.Filter(1500, "lowpass").toDestination();
-      synths.reverb = new Tone.Reverb({ decay: 6, wet: 0.4 }).connect(masterFilter);
+      synths.reverb = new Tone.Reverb({ decay: 5, wet: 0.3 }).connect(masterFilter);
       
-      // LO-FI 氣氛背景 Player 陣列
+      // 1. 初始化 5 種環境音 Player
       synths.ambients = {};
-      for (const [key, url] of Object.entries(ambientMap)) {
+      for (const [key, url] of Object.entries(ambientUrls)) {
         synths.ambients[key] = new Tone.Player({ url, loop: true, volume: -Infinity }).toDestination();
       }
 
-      // 高品質鋼琴
+      // 2. 初始化鋼琴音源（Salamander）
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(synths.reverb);
 
-      // 獨立音樂風格：加入微弱音頻抖動 (Wow/Flutter 模擬)
-      synths.vibrato = new Tone.Vibrato(5, 0.1).connect(synths.reverb);
+      // 3. 增加微弱顫音（模擬磁帶不穩定感）
+      synths.vibrato = new Tone.Vibrato(4, 0.1).connect(synths.reverb);
       synths.piano.connect(synths.vibrato);
 
       synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" }, volume: -15 }).toDestination();
@@ -365,8 +363,11 @@
       audioInited = true;
     }
 
+    // --- PLAY 核心邏輯（修正無回應問題） ---
     playBtn.addEventListener('click', async () => {
       if (!currentFeatures) return;
+      
+      // 先啟動引擎
       await initAudio();
       await Tone.context.resume();
       
@@ -378,25 +379,24 @@
       Tone.Transport.bpm.value = f.bpm;
       synths.reverb.wet.value = info.reverb;
 
-      // --- LO-FI 背景切換邏輯 ---
+      // 1. 環境音切換（非阻塞式檢查）
       Object.values(synths.ambients).forEach(p => p.volume.rampTo(-Infinity, 1));
       if (musicMode === 'lofi') {
         const targetAmbient = synths.ambients[info.ambient];
-        if (targetAmbient) {
+        if (targetAmbient && targetAmbient.loaded) {
           targetAmbient.start();
           targetAmbient.volume.rampTo(-20, 3);
         }
       }
 
-      // --- 進階功能 C：StreetVoice 風格旋律算法 ---
-      // 使用「延展音程」與「隨機種子」確保旋律具有獨立音樂的流動感
+      // 2. 音階與旋律生成 (StreetVoice 風格)
       const majorScale = ["C4", "D4", "E4", "G4", "A4", "C5", "D5"];
       const minorScale = ["A3", "C4", "D4", "E4", "G4", "A4", "C5"];
       const scale = f.mode === 'Major' ? majorScale : minorScale;
       const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
 
       const sequence = [];
-      Tone.Transport.swing = (musicMode === 'jazz') ? 0.4 : 0.05;
+      Tone.Transport.swing = (musicMode === 'jazz') ? 0.4 : 0.08;
 
       for (let bar = 0; bar < 8; bar++) {
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
@@ -405,35 +405,26 @@
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
         if (musicMode === 'jazz') {
-          // 爵士邏輯 (保持原樣)
+          // 爵士邏輯保持
           for (let beat = 0; beat < 4; beat++) {
-            const noteIdx = (f.seed + bar + beat) % jazzScale.length;
-            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[noteIdx].replace('3','2').replace('4','2') });
+            const nIdx = (f.seed + bar + beat) % jazzScale.length;
+            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[nIdx].replace('3','2').replace('4','2') });
           }
           if ((f.seed + bar) % 2 === 0) {
             sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]], dur: "4n" });
           }
         } else {
-          // --- LO-FI StreetVoice 旋律邏輯 ---
-          // 模仿人手彈奏的非對稱性：不固定在每一拍，而是根據 seed 偏移
+          // --- StreetVoice LO-FI 旋律邏輯 ---
           const offset1 = (f.seed % 3) * 0.25; 
           const note1 = scale[(f.seed + bar) % scale.length];
-          const note2 = scale[(f.seed + bar + 3) % scale.length];
+          const note2 = scale[(f.seed + bar + 2) % scale.length];
           
-          // 低音流動 (Bassline)
           sequence.push({ time: `${bar}:0:0`, type: "bass", note: scale[0].replace('4','2') });
-          
-          // 鋼琴旋律
           sequence.push({ time: `${bar}:0:${offset1}`, type: "piano", notes: [note1], dur: "2n", vel: 0.4 });
           
           if (info.density > 0.4) {
             const offset2 = (f.seed % 4) * 0.5;
             sequence.push({ time: `${bar}:2:${offset2}`, type: "piano", notes: [note2], dur: "4n", vel: 0.3 });
-          }
-          
-          // 隨機裝飾音 (模仿 StreetVoice 常見的氛圍感)
-          if ((f.seed + bar) % 3 === 0) {
-            sequence.push({ time: `${bar}:1:3`, type: "piano", notes: [scale[f.seed % scale.length]], dur: "8n", vel: 0.2 });
           }
         }
       }
@@ -443,7 +434,8 @@
         if (v.type === "snare") synths.snare.triggerAttack(time);
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "8n", time);
         if (v.type === "piano") {
-          const inst = synths.piano.loaded ? synths.piano : new Tone.PolySynth().toDestination();
+          // 如果高品質鋼琴還沒載入，使用合成器備援
+          const inst = (synths.piano && synths.piano.loaded) ? synths.piano : new Tone.PolySynth().toDestination();
           inst.triggerAttackRelease(v.notes, v.dur || "4n", time, v.vel || 0.5);
         }
       }, sequence).start(0);
@@ -451,6 +443,7 @@
       Tone.Transport.loop = true; 
       Tone.Transport.loopEnd = "8m";
       
+      // 延遲一點點啟動以確保所有設定都生效
       setTimeout(() => {
         Tone.Transport.start();
         stopBtn.disabled = false; 
