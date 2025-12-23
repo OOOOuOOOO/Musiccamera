@@ -232,20 +232,19 @@
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
     let mediaRecorder, recordedChunks = [];
 
-    // --- 音樂情感矩陣：擴大速度與密度的動態範圍 ---
     const tagMatrix = {
-      'Energetic': { text: "充滿活力的節奏", bpmBase: 105, density: 0.9, reverb: 0.2, lpf: 2200 },
-      'Dreamy': { text: "如夢似幻的泡影", bpmBase: 62, density: 0.5, reverb: 0.85, lpf: 850 },
-      'Bright': { text: "捕捉光芒的瞬間", bpmBase: 92, density: 0.75, reverb: 0.3, lpf: 2800 },
-      'Calm': { text: "呼吸間的寧靜", bpmBase: 58, density: 0.4, reverb: 0.6, lpf: 1100 },
-      'Cozy': { text: "暖色調的午後", bpmBase: 78, density: 0.65, reverb: 0.45, lpf: 1300 },
-      'Nostalgic': { text: "泛黃的舊時光", bpmBase: 68, density: 0.55, reverb: 0.75, lpf: 750 },
-      'Urban': { text: "都市霓虹的閃爍", bpmBase: 100, density: 0.85, reverb: 0.35, lpf: 1600 },
-      'Tense': { text: "緊繃的視覺張力", bpmBase: 110, density: 0.95, reverb: 0.45, lpf: 1900 },
-      'Mysterious': { text: "深邃神祕的暗影", bpmBase: 65, density: 0.5, reverb: 0.7, lpf: 650 },
-      'Melancholy': { text: "雨後的憂鬱藍調", bpmBase: 55, density: 0.45, reverb: 0.8, lpf: 950 },
-      'Lonely': { text: "看見一抹寂靜", bpmBase: 50, density: 0.3, reverb: 0.9, lpf: 550 },
-      'Static': { text: "凝結永恆的靜物", bpmBase: 48, density: 0.25, reverb: 0.7, lpf: 450 }
+      'Energetic': { text: "充滿活力的節奏", bpmBase: 105, density: 0.85, reverb: 0.2, lpf: 2200 },
+      'Dreamy': { text: "如夢似幻的泡影", bpmBase: 65, density: 0.6, reverb: 0.8, lpf: 850 },
+      'Bright': { text: "捕捉光芒的瞬間", bpmBase: 95, density: 0.75, reverb: 0.3, lpf: 2800 },
+      'Calm': { text: "呼吸間的寧靜", bpmBase: 60, density: 0.5, reverb: 0.6, lpf: 1100 },
+      'Cozy': { text: "暖色調的午後", bpmBase: 80, density: 0.65, reverb: 0.45, lpf: 1300 },
+      'Nostalgic': { text: "泛黃的舊時光", bpmBase: 70, density: 0.55, reverb: 0.7, lpf: 750 },
+      'Urban': { text: "都市霓虹的閃爍", bpmBase: 100, density: 0.8, reverb: 0.35, lpf: 1600 },
+      'Tense': { text: "緊繃的視覺張力", bpmBase: 110, density: 0.9, reverb: 0.45, lpf: 1900 },
+      'Mysterious': { text: "深邃神祕的暗影", bpmBase: 68, density: 0.55, reverb: 0.75, lpf: 650 },
+      'Melancholy': { text: "雨後的憂鬱藍調", bpmBase: 58, density: 0.5, reverb: 0.85, lpf: 950 },
+      'Lonely': { text: "看見一抹寂靜", bpmBase: 52, density: 0.4, reverb: 0.9, lpf: 550 },
+      'Static': { text: "凝結永恆的靜物", bpmBase: 50, density: 0.35, reverb: 0.75, lpf: 450 }
     };
 
     lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
@@ -320,7 +319,6 @@
       recBtn.disabled = false;
     }
 
-    // --- 音訊引擎優化：增加噪音音量與質感 ---
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
@@ -328,12 +326,10 @@
       synths.lpf = new Tone.Filter(1200, "lowpass").toDestination();
       synths.reverb = new Tone.Reverb({ decay: 6, wet: 0.6 }).connect(synths.lpf);
       
-      // 增加噪音音量：調整 volume 到 -28 左右，並加入 LFO 做出呼吸感
       synths.pinkNoise = new Tone.Noise("pink").connect(new Tone.Filter(750, "lowpass").toDestination());
       synths.pinkNoise.volume.value = -Infinity;
       synths.pinkNoise.start();
 
-      // 增強黑膠質感
       synths.crackles = new Tone.MembraneSynth({
         pitchDecay: 0.002, octaves: 2, envelope: { attack: 0.001, decay: 0.02, sustain: 0 }
       }).connect(new Tone.Filter(4000, "highpass").toDestination());
@@ -344,7 +340,7 @@
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(synths.reverb);
 
-      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" }, volume: -12 }).toDestination();
+      synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" }, volume: -15 }).toDestination();
       synths.kick = new Tone.MembraneSynth({ volume: -18 }).connect(synths.lpf);
       synths.snare = new Tone.NoiseSynth({ volume: -32 }).connect(synths.lpf);
       
@@ -361,43 +357,47 @@
       
       const f = currentFeatures;
       const info = f.tagInfo;
-      
-      // 動態 BPM：亮度越高越快，亮度越低越慢
       const finalBpm = info.bpmBase + ((f.brightness - 128) / 10);
       Tone.Transport.bpm.value = Math.max(45, Math.min(finalBpm, 115));
-      
       synths.lpf.frequency.value = info.lpf;
       synths.reverb.wet.value = info.reverb;
 
-      // 底噪控制：提高音量並平滑過渡
       if (musicMode === 'lofi') {
-        synths.pinkNoise.volume.rampTo(-26, 3); // 從 -Infinity 到 -26 (大聲的沙沙聲)
+        synths.pinkNoise.volume.rampTo(-26, 3);
       } else {
         synths.pinkNoise.volume.rampTo(-Infinity, 1);
       }
 
-      const majorScale = ["C3", "E3", "G3", "B3", "D4", "G4", "A4", "B4"];
-      const minorScale = ["A2", "C3", "E3", "G3", "B3", "C4", "E4", "F4"];
+      const majorScale = ["C3", "E3", "G3", "B3", "D4", "G4", "A4", "B4", "D5"];
+      const minorScale = ["A2", "C3", "E3", "G3", "B3", "C4", "E4", "G4", "A4"];
       const scale = f.mode === 'Major' ? majorScale : minorScale;
       const jazzScale = ["C2", "Eb2", "F2", "Gb2", "G2", "Bb2", "C3"];
 
       const sequence = [];
-      Tone.Transport.swing = (musicMode === 'jazz') ? 0.42 : 0.06;
+      Tone.Transport.swing = (musicMode === 'jazz') ? 0.42 : 0.08;
+
+      // --- 旋律動機生成 (Motif generation) ---
+      // 我們預先根據種子生成一個 4 拍的旋律動機
+      const motif = [];
+      for(let i=0; i<4; i++) {
+        const prob = Math.abs(Math.sin(f.seed + i));
+        if (prob > (1 - info.density)) {
+          motif.push({
+            step: i,
+            note: scale[Math.floor(prob * scale.length)],
+            vel: 0.2 + (prob * 0.2)
+          });
+        }
+      }
 
       for (let bar = 0; bar < 8; bar++) {
-        // 鼓組穩定器
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
-        // 黑膠刮痕隨機性增強
         if (musicMode === 'lofi') {
-          for(let i=0; i<6; i++) {
-            if(Math.abs(Math.sin(f.seed + bar + i)) > 0.6) {
-              sequence.push({ time: `${bar}:${Math.floor(i/1.5)}:${Math.random()}`, type: "crackle" });
-            }
-          }
+          for(let i=0; i<4; i++) if(Math.random() > 0.7) sequence.push({ time: `${bar}:${i}:${Math.random()}`, type: "crackle" });
         }
 
         if (musicMode === 'jazz') {
@@ -409,23 +409,29 @@
             sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]], dur: "4n" });
           }
         } else {
-          // --- LO-FI 流動鋼琴深度優化 ---
-          // 左手：跟隨種子的低音線
-          const rootNote = scale[bar % 4].replace('3','2');
-          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [rootNote], dur: "1n", vel: 0.35 });
-          if(bar % 2 === 0) sequence.push({ time: `${bar}:2:0`, type: "piano", notes: [scale[2].replace('3','2')], dur: "2n", vel: 0.2 });
+          // --- LO-FI 好聽旋律邏輯 (StreetVoice Style) ---
+          // 左手：穩定的低音進行
+          const rootIdx = (bar < 4) ? 0 : 2;
+          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[rootIdx].replace('3','2')], dur: "1n", vel: 0.25 });
 
-          // 右手：更具隨機性的流動分解和弦 (Arpeggio)
-          const density = info.density;
-          for(let i=0; i<12; i++) {
-            // 使用種子生成偽隨機節奏：包含三連音位置
-            if (Math.abs(Math.cos(f.seed * (i + 1) + bar)) < density) {
-              const note = scale[(f.seed + i + bar) % scale.length];
-              // 隨機化的細微時間偏移
-              const offset = (Math.abs(Math.sin(f.seed + i)) * 0.5);
-              const time = `${bar}:${Math.floor(i/3)}:${offset.toFixed(2)}`;
-              sequence.push({ time: time, type: "piano", notes: [note], dur: "4n", vel: 0.2 + (Math.random()*0.2) });
+          // 右手：基於動機的主題旋律
+          motif.forEach(m => {
+            // 每兩小節重複一次主題，但偶數小節做「變奏」（升高一個音階或偏移時間）
+            let finalNote = m.note;
+            let timeOffset = 0;
+            if (bar % 2 === 1) {
+                const variationIdx = (scale.indexOf(m.note) + 1) % scale.length;
+                finalNote = scale[variationIdx];
+                timeOffset = 0.5; // 稍微延遲，製造呼吸感
             }
+            
+            const noteTime = `${bar}:${Math.floor(m.step)}:${timeOffset}`;
+            sequence.push({ time: noteTime, type: "piano", notes: [finalNote], dur: "2n", vel: m.vel });
+          });
+          
+          // 額外的「裝飾音」：只在第 4 與第 8 小節出現，增加華麗感
+          if (bar === 3 || bar === 7) {
+            sequence.push({ time: `${bar}:3:2`, type: "piano", notes: [scale[scale.length-1]], dur: "8n", vel: 0.1 });
           }
         }
       }
@@ -437,7 +443,7 @@
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "8n", time);
         if (v.type === "piano") {
           const inst = synths.piano.loaded ? synths.piano : new Tone.PolySynth().toDestination();
-          inst.triggerAttackRelease(v.notes, v.dur, time, v.vel || 0.45);
+          inst.triggerAttackRelease(v.notes, v.dur, time, v.vel || 0.4);
         }
       }, sequence).start(0);
 
