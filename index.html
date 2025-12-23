@@ -232,28 +232,19 @@
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
     let mediaRecorder, recordedChunks = [];
 
-    // --- LO-FI 五種氣氛噪音清單 ---
-    const ambientUrls = {
-      'Vinyl': "https://raw.githubusercontent.com/Tonejs/audio/master/noise/vinyl.mp3",
-      'Rain': "https://actions.google.com/sounds/v1/ambiences/rain_on_roof.ogg",
-      'Forest': "https://actions.google.com/sounds/v1/ambiences/forest_morning_birds.ogg",
-      'Fire': "https://actions.google.com/sounds/v1/ambiences/fireplace_crackling.ogg",
-      'Waves': "https://actions.google.com/sounds/v1/ambiences/ocean_waves.ogg"
-    };
-
     const tagMatrix = {
-      'Energetic': { text: "充滿活力的節奏", bpmAdd: 15, density: 0.8, reverb: 0.2, ambient: 'Forest' },
-      'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -5, density: 0.4, reverb: 0.8, ambient: 'Waves' },
-      'Bright': { text: "捕捉光芒的瞬間", bpmAdd: 5, density: 0.7, reverb: 0.3, ambient: 'Forest' },
-      'Calm': { text: "呼吸間的寧靜", bpmAdd: -10, density: 0.3, reverb: 0.5, ambient: 'Waves' },
-      'Cozy': { text: "暖色調的午後", bpmAdd: -2, density: 0.5, reverb: 0.4, ambient: 'Vinyl' },
-      'Nostalgic': { text: "泛黃的舊時光", bpmAdd: -8, density: 0.4, reverb: 0.7, ambient: 'Vinyl' },
-      'Urban': { text: "都市霓虹的閃爍", bpmAdd: 10, density: 0.8, reverb: 0.3, ambient: 'Vinyl' },
-      'Tense': { text: "緊繃的視覺張力", bpmAdd: 12, density: 0.9, reverb: 0.4, ambient: 'Rain' },
-      'Mysterious': { text: "深邃神祕的暗影", bpmAdd: -4, density: 0.5, reverb: 0.7, ambient: 'Rain' },
-      'Melancholy': { text: "雨後的憂鬱藍調", bpmAdd: -12, density: 0.3, reverb: 0.7, ambient: 'Rain' },
-      'Lonely': { text: "看見一抹寂靜", bpmAdd: -15, density: 0.2, reverb: 0.9, ambient: 'Fire' },
-      'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.1, reverb: 0.8, ambient: 'Fire' }
+      'Energetic': { text: "充滿活力的節奏", bpmAdd: 12, density: 0.8, reverb: 0.2, lpf: 2000 },
+      'Dreamy': { text: "如夢似幻的泡影", bpmAdd: -6, density: 0.5, reverb: 0.8, lpf: 800 },
+      'Bright': { text: "捕捉光芒的瞬間", bpmAdd: 4, density: 0.7, reverb: 0.3, lpf: 2500 },
+      'Calm': { text: "呼吸間的寧靜", bpmAdd: -10, density: 0.4, reverb: 0.5, lpf: 1000 },
+      'Cozy': { text: "暖色調的午後", bpmAdd: -2, density: 0.6, reverb: 0.4, lpf: 1200 },
+      'Nostalgic': { text: "泛黃的舊時光", bpmAdd: -8, density: 0.5, reverb: 0.7, lpf: 700 },
+      'Urban': { text: "都市霓虹的閃爍", bpmAdd: 10, density: 0.8, reverb: 0.3, lpf: 1500 },
+      'Tense': { text: "緊繃的視覺張力", bpmAdd: 14, density: 0.9, reverb: 0.4, lpf: 1800 },
+      'Mysterious': { text: "深邃神祕的暗影", bpmAdd: -4, density: 0.5, reverb: 0.7, lpf: 600 },
+      'Melancholy': { text: "雨後的憂鬱藍調", bpmAdd: -14, density: 0.4, reverb: 0.8, lpf: 900 },
+      'Lonely': { text: "看見一抹寂靜", bpmAdd: -15, density: 0.3, reverb: 0.9, lpf: 500 },
+      'Static': { text: "凝結永恆的靜物", bpmAdd: -20, density: 0.2, reverb: 0.6, lpf: 400 }
     };
 
     lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
@@ -298,20 +289,16 @@
         const data = ctx.getImageData(0, 0, 10, 10).data;
         let r=0, g=0, b=0, bri=0;
         for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; bri+=(data[i]+data[i+1]+data[i+2])/3; }
-        
         const tags = Object.keys(tagMatrix);
         let tagIndex = (r + g + b) % tags.length;
         if (bri > 200) tagIndex = 2; 
         if (bri < 50) tagIndex = 8;  
         if (b > r + 50) tagIndex = 9; 
-        
-        const selectedTag = tags[tagIndex];
         currentFeatures = { 
-          tag: selectedTag,
-          tagInfo: tagMatrix[selectedTag],
+          tagInfo: tagMatrix[tags[tagIndex]],
           mode: (bri/100) > 125 ? 'Major' : 'Minor',
           seed: (r + g + b),
-          bpm: 85 + tagMatrix[selectedTag].bpmAdd
+          bpm: 80 + tagMatrix[tags[tagIndex]].bpmAdd
         };
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
@@ -332,42 +319,42 @@
       recBtn.disabled = false;
     }
 
-    // --- 音頻初始化（修正載入依賴） ---
+    // --- 核心修改：零延遲底噪與流動鋼琴引擎 ---
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
       
-      const masterFilter = new Tone.Filter(1500, "lowpass").toDestination();
-      synths.reverb = new Tone.Reverb({ decay: 5, wet: 0.3 }).connect(masterFilter);
+      // 1. 主效果鏈
+      synths.lpf = new Tone.Filter(1200, "lowpass").toDestination();
+      synths.reverb = new Tone.Reverb({ decay: 5, wet: 0.5 }).connect(synths.lpf);
       
-      // 1. 初始化 5 種環境音 Player
-      synths.ambients = {};
-      for (const [key, url] of Object.entries(ambientUrls)) {
-        synths.ambients[key] = new Tone.Player({ url, loop: true, volume: -Infinity }).toDestination();
-      }
+      // 2. LO-FI 零延遲底噪：粉紅噪音 (Pink Noise)
+      synths.pinkNoise = new Tone.Noise("pink").connect(new Tone.Filter(800, "lowpass").toDestination());
+      synths.pinkNoise.volume.value = -Infinity;
+      synths.pinkNoise.start();
 
-      // 2. 初始化鋼琴音源（Salamander）
+      // 3. 黑膠感模擬 (Vinyl Crackle)：利用隨機脈衝
+      synths.crackles = new Tone.MembraneSynth({
+        pitchDecay: 0.001, octaves: 1, envelope: { attack: 0.001, decay: 0.01, sustain: 0 }
+      }).connect(new Tone.Filter(3000, "highpass").toDestination());
+      synths.crackles.volume.value = -35;
+
+      // 4. 鋼琴音色 (Sampler)
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
       }).connect(synths.reverb);
 
-      // 3. 增加微弱顫音（模擬磁帶不穩定感）
-      synths.vibrato = new Tone.Vibrato(4, 0.1).connect(synths.reverb);
-      synths.piano.connect(synths.vibrato);
-
+      // 5. 節奏與低音
       synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" }, volume: -15 }).toDestination();
-      synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(masterFilter);
-      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(masterFilter);
+      synths.kick = new Tone.MembraneSynth({ volume: -20 }).connect(synths.lpf);
+      synths.snare = new Tone.NoiseSynth({ volume: -35 }).connect(synths.lpf);
       
       audioInited = true;
     }
 
-    // --- PLAY 核心邏輯（修正無回應問題） ---
     playBtn.addEventListener('click', async () => {
       if (!currentFeatures) return;
-      
-      // 先啟動引擎
       await initAudio();
       await Tone.context.resume();
       
@@ -377,54 +364,60 @@
       const f = currentFeatures;
       const info = f.tagInfo;
       Tone.Transport.bpm.value = f.bpm;
+      synths.lpf.frequency.value = info.lpf;
       synths.reverb.wet.value = info.reverb;
 
-      // 1. 環境音切換（非阻塞式檢查）
-      Object.values(synths.ambients).forEach(p => p.volume.rampTo(-Infinity, 1));
+      // 啟動底噪
       if (musicMode === 'lofi') {
-        const targetAmbient = synths.ambients[info.ambient];
-        if (targetAmbient && targetAmbient.loaded) {
-          targetAmbient.start();
-          targetAmbient.volume.rampTo(-20, 3);
-        }
+        synths.pinkNoise.volume.rampTo(-38, 2);
+      } else {
+        synths.pinkNoise.volume.rampTo(-Infinity, 1);
       }
 
-      // 2. 音階與旋律生成 (StreetVoice 風格)
-      const majorScale = ["C4", "D4", "E4", "G4", "A4", "C5", "D5"];
-      const minorScale = ["A3", "C4", "D4", "E4", "G4", "A4", "C5"];
+      const majorScale = ["C3", "E3", "G3", "B3", "D4", "G4", "A4"];
+      const minorScale = ["A2", "C3", "E3", "G3", "B3", "C4", "E4"];
       const scale = f.mode === 'Major' ? majorScale : minorScale;
-      const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
+      const jazzScale = ["C2", "Eb2", "F2", "Gb2", "G2", "Bb2", "C3"];
 
       const sequence = [];
-      Tone.Transport.swing = (musicMode === 'jazz') ? 0.4 : 0.08;
+      Tone.Transport.swing = (musicMode === 'jazz') ? 0.4 : 0.05;
 
       for (let bar = 0; bar < 8; bar++) {
+        // 固定鼓組
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
+        // 黑膠刮痕隨機觸發
+        if (musicMode === 'lofi') {
+          for(let i=0; i<4; i++) {
+            if(Math.random() > 0.6) sequence.push({ time: `${bar}:${i}:${Math.random()}`, type: "crackle" });
+          }
+        }
+
         if (musicMode === 'jazz') {
-          // 爵士邏輯保持
+          // 爵士邏輯 (保持穩定)
           for (let beat = 0; beat < 4; beat++) {
             const nIdx = (f.seed + bar + beat) % jazzScale.length;
-            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[nIdx].replace('3','2').replace('4','2') });
+            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[nIdx] });
           }
           if ((f.seed + bar) % 2 === 0) {
             sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [jazzScale[0], jazzScale[2], jazzScale[4]], dur: "4n" });
           }
         } else {
-          // --- StreetVoice LO-FI 旋律邏輯 ---
-          const offset1 = (f.seed % 3) * 0.25; 
-          const note1 = scale[(f.seed + bar) % scale.length];
-          const note2 = scale[(f.seed + bar + 2) % scale.length];
+          // --- LO-FI 流動鋼琴旋律邏輯 ---
+          // 左手：穩定的低音墊底
+          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [scale[0]], dur: "1n", vel: 0.3 });
           
-          sequence.push({ time: `${bar}:0:0`, type: "bass", note: scale[0].replace('4','2') });
-          sequence.push({ time: `${bar}:0:${offset1}`, type: "piano", notes: [note1], dur: "2n", vel: 0.4 });
-          
-          if (info.density > 0.4) {
-            const offset2 = (f.seed % 4) * 0.5;
-            sequence.push({ time: `${bar}:2:${offset2}`, type: "piano", notes: [note2], dur: "4n", vel: 0.3 });
+          // 右手：流動的分解和弦 (Arpeggio)
+          const density = info.density;
+          for(let i=0; i<8; i++) {
+            if (Math.abs(Math.sin(f.seed + bar + i)) < density) {
+              const note = scale[(f.seed + i) % scale.length];
+              const time = `${bar}:${Math.floor(i/2)}:${(i%2)*2}`;
+              sequence.push({ time: time, type: "piano", notes: [note], dur: "4n", vel: 0.25 });
+            }
           }
         }
       }
@@ -432,28 +425,21 @@
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
+        if (v.type === "crackle") synths.crackles.triggerAttackRelease("C8", "32n", time, 0.1);
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "8n", time);
         if (v.type === "piano") {
-          // 如果高品質鋼琴還沒載入，使用合成器備援
-          const inst = (synths.piano && synths.piano.loaded) ? synths.piano : new Tone.PolySynth().toDestination();
-          inst.triggerAttackRelease(v.notes, v.dur || "4n", time, v.vel || 0.5);
+          const inst = synths.piano.loaded ? synths.piano : new Tone.PolySynth().toDestination();
+          inst.triggerAttackRelease(v.notes, v.dur, time, v.vel || 0.5);
         }
       }, sequence).start(0);
 
-      Tone.Transport.loop = true; 
-      Tone.Transport.loopEnd = "8m";
-      
-      // 延遲一點點啟動以確保所有設定都生效
-      setTimeout(() => {
-        Tone.Transport.start();
-        stopBtn.disabled = false; 
-        playBtn.disabled = true;
-      }, 50);
+      Tone.Transport.loop = true; Tone.Transport.loopEnd = "8m";
+      setTimeout(() => { Tone.Transport.start(); stopBtn.disabled = false; playBtn.disabled = true; }, 50);
     });
     
     stopBtn.addEventListener('click', () => { 
       Tone.Transport.stop(); 
-      Object.values(synths.ambients).forEach(p => p.volume.rampTo(-Infinity, 1));
+      synths.pinkNoise.volume.rampTo(-Infinity, 1);
       playBtn.disabled = false; stopBtn.disabled = true; 
     });
 
@@ -472,10 +458,8 @@
       recordedChunks = [];
       const types = ["video/mp4", "video/webm"];
       let supportedType = types.find(type => MediaRecorder.isTypeSupported(type));
-
       recordCanvas.width = 400; recordCanvas.height = 500;
       const rCtx = recordCanvas.getContext('2d');
-
       function updateCanvas() {
         if (!mediaRecorder || mediaRecorder.state !== "recording") return;
         rCtx.fillStyle = "#fff"; rCtx.fillRect(0, 0, 400, 500);
@@ -488,18 +472,15 @@
         rCtx.fillText(filmDate.innerText, 280, 460);
         requestAnimationFrame(updateCanvas);
       }
-
       const canvasStream = recordCanvas.captureStream(30);
       const audioDest = Tone.getContext().rawContext.createMediaStreamDestination();
       Tone.getDestination().connect(audioDest);
       const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()]);
-
       mediaRecorder = new MediaRecorder(combinedStream, { mimeType: supportedType });
       mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
       mediaRecorder.onstop = () => {
         const url = URL.createObjectURL(new Blob(recordedChunks, { type: supportedType }));
-        const a = document.createElement("a"); a.href = url; 
-        a.download = `Memory_${Date.now()}.mp4`; a.click();
+        const a = document.createElement("a"); a.href = url; a.download = `Memory_${Date.now()}.mp4`; a.click();
       };
       mediaRecorder.start();
       recBtn.classList.add('recording');
