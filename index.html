@@ -232,7 +232,6 @@
     let stream = null, audioInited = false, currentFeatures = null, synths = {}, musicMode = 'lofi';
     let mediaRecorder, recordedChunks = [];
 
-    // --- 情感矩陣 ---
     const tagMatrix = {
       'Energetic': { text: "充滿活力的節奏", bpmBase: 105, density: 0.85, reverb: 0.3, lpf: 1500 },
       'Dreamy': { text: "如夢似幻的泡影", bpmBase: 65, density: 0.6, reverb: 0.85, lpf: 550 },
@@ -294,12 +293,13 @@
         let tagIndex = (r + g + b) % tags.length;
         if (bri > 210) tagIndex = 2; 
         if (bri < 50) tagIndex = 8;  
-        if (b > r + 60) tagIndex = 9; 
+        
         currentFeatures = { 
           tagInfo: tagMatrix[tags[tagIndex]],
           mode: (bri/100) > 125 ? 'Major' : 'Minor',
           seed: (r + g + b),
-          brightness: bri
+          brightness: bri,
+          red: r, green: g, blue: b
         };
         analysisText.innerHTML = `讓音樂完整回憶`;
         triggerEject();
@@ -349,12 +349,7 @@
       }).connect(new Tone.Filter(8000, "highpass").connect(synths.masterLPF));
 
       synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" }, volume: -12 }).connect(synths.masterLPF);
-      
-      synths.bassCounter = new Tone.MonoSynth({ 
-        oscillator: { type: "triangle" }, 
-        volume: -15,
-        envelope: { attack: 0.08, release: 1 } 
-      }).connect(synths.masterLPF);
+      synths.bassCounter = new Tone.MonoSynth({ oscillator: { type: "triangle" }, volume: -15, envelope: { attack: 0.08, release: 1 } }).connect(synths.masterLPF);
 
       synths.kick = new Tone.MembraneSynth({ volume: -15 }).connect(synths.masterLPF);
       synths.snare = new Tone.NoiseSynth({ volume: -30 }).connect(synths.masterLPF);
@@ -383,75 +378,62 @@
         synths.pinkNoise.volume.rampTo(-Infinity, 1);
       }
 
-      const scale = ["C3", "E3", "G3", "B3", "D4", "G4", "A4", "B4", "D5", "E5", "G5"];
-      const jazzScale = ["C2", "Eb2", "F2", "Gb2", "G2", "Bb2", "C3", "Eb3", "F3", "G3", "Bb3"];
-
+      // --- 爵士差異極大化邏輯 ---
       const sequence = [];
       Tone.Transport.swing = (musicMode === 'jazz') ? 0.45 : 0.12;
 
-      // 生成 Lo-Fi 動機
-      const motifA = [];
-      for(let i=0; i<4; i++) {
-        const prob = Math.abs(Math.sin(f.seed + i));
-        if (prob > (1 - info.density)) {
-          motifA.push({ step: i, note: scale[Math.floor(prob * (scale.length/1.5))], vel: 0.2 + (prob * 0.1) });
+      if (musicMode === 'jazz') {
+        // 1. 根據顏色決定音階 (Blues, Lydian, or Standard)
+        let jazzScale;
+        if (f.blue > f.red + 40) { // 藍色調照片 -> Blues Scale
+          jazzScale = ["C2", "Eb2", "F2", "Gb2", "G2", "Bb2", "C3", "Eb3", "F3", "Gb3", "G3", "Bb3"];
+        } else if (f.red > f.blue + 40) { // 紅色調照片 -> Lydian (夢幻高亢)
+          jazzScale = ["C2", "D2", "E2", "Gb2", "G2", "A2", "B2", "C3", "D3", "E3", "Gb3", "G3", "A3"];
+        } else { // 均衡照片 -> Standard Jazz
+          jazzScale = ["C2", "D2", "Eb2", "F2", "G2", "Ab2", "Bb2", "C3", "D3", "Eb3", "F3", "G3"];
         }
-      }
-      const motifB = [];
-      for(let i=0; i<4; i++) {
-        const prob = Math.abs(Math.cos(f.seed * 1.5 + i));
-        if (prob > (1 - info.density)) {
-          motifB.push({ step: i, note: scale[Math.floor(scale.length/2 + prob * (scale.length/2 - 1))], vel: 0.25 + (prob * 0.15) });
-        }
-      }
 
-      for (let bar = 0; bar < 16; bar++) {
-        // --- 爵士模式：最終即興優化 ---
-        if (musicMode === 'jazz') {
-          // 爵士節奏：動態 Ride Cymbal
-          sequence.push({ time: `${bar}:0:0`, type: "hihat", vel: (bar % 4 === 0) ? 0.15 : 0.1 });
-          sequence.push({ time: `${bar}:1:0`, type: "hihat", vel: 0.1 });
-          sequence.push({ time: `${bar}:1:2`, type: "hihat", vel: 0.06 });
-          sequence.push({ time: `${bar}:2:0`, type: "hihat", vel: 0.12 });
-          sequence.push({ time: `${bar}:3:0`, type: "hihat", vel: 0.1 });
-          sequence.push({ time: `${bar}:3:2`, type: "hihat", vel: 0.08 });
+        // 2. 根據亮度決定音程範圍
+        const range = Math.floor((f.brightness / 255) * (jazzScale.length - 4)) + 4;
+        
+        for (let bar = 0; bar < 16; bar++) {
+          // 節奏部
+          sequence.push({ time: `${bar}:0:0`, type: "hihat", vel: 0.1 });
+          sequence.push({ time: `${bar}:1:0`, type: "hihat", vel: 0.05 });
+          sequence.push({ time: `${bar}:2:0`, type: "hihat", vel: 0.1 });
+          sequence.push({ time: `${bar}:3:0`, type: "hihat", vel: 0.05 });
 
-          // Walking Bass (核心低音)
+          // Walking Bass (主骨架) - 隨機性受 Seed 影響
           for (let beat = 0; beat < 4; beat++) {
-            const nIdx = Math.abs(Math.floor(Math.sin(f.seed + bar + beat) * 6));
-            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[nIdx] });
-          }
-
-          // --- 旋律三態即興邏輯 ---
-          if (bar >= 8 && bar < 12) {
-            // 狀態 C：Solo 即興區 - 節奏更自由，音程跳躍更大
-            for (let beat = 0; beat < 4; beat++) {
-              if (Math.abs(Math.cos(f.seed * bar + beat)) > 0.4) {
-                const soloNote = jazzScale[Math.floor(Math.random() * jazzScale.length)];
-                sequence.push({ time: `${bar}:${beat}:${(beat % 2 === 0) ? 2 : 1}`, type: "bassCounter", note: soloNote });
-              }
-            }
-          } else if (bar >= 4 && bar < 8) {
-            // 狀態 B：低音同步 (Unison) - 增加重量感
-            for (let beat = 0; beat < 4; beat++) {
-              if (beat % 2 === 0) {
-                sequence.push({ time: `${bar}:${beat}:2`, type: "bassCounter", note: jazzScale[0] });
-              }
-            }
-          } else {
-            // 狀態 A：呼應對話
-            const counterProb = Math.abs(Math.sin(f.seed + bar));
-            if (counterProb > 0.5) {
-              const cNote = jazzScale[6 + Math.floor(counterProb * 4)];
-              sequence.push({ time: `${bar}:1:2`, type: "bassCounter", note: cNote });
-              if (counterProb > 0.8) sequence.push({ time: `${bar}:3:1`, type: "bassCounter", note: jazzScale[7] });
+            const noteIdx = Math.abs(Math.floor(Math.sin(f.seed + bar + beat) * 5));
+            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[noteIdx] });
+            
+            // 對位 Bass (即興部分) - 根據亮度決定活躍度
+            if (Math.abs(Math.cos(f.seed * bar + beat)) > (1 - (f.brightness / 400))) {
+              const counterIdx = Math.floor(Math.random() * range);
+              sequence.push({ time: `${bar}:${beat}:2`, type: "bassCounter", note: jazzScale[counterIdx] });
             }
           }
+        }
+      } else {
+        // --- LO-FI 模式 (保持原樣) ---
+        const scale = ["C3", "E3", "G3", "B3", "D4", "G4", "A4", "B4", "D5", "E5", "G5"];
+        const motifA = [];
+        for(let i=0; i<4; i++) {
+          const prob = Math.abs(Math.sin(f.seed + i));
+          if (prob > (1 - info.density)) {
+            motifA.push({ step: i, note: scale[Math.floor(prob * (scale.length/1.5))], vel: 0.2 + (prob * 0.1) });
+          }
+        }
+        const motifB = [];
+        for(let i=0; i<4; i++) {
+          const prob = Math.abs(Math.cos(f.seed * 1.5 + i));
+          if (prob > (1 - info.density)) {
+            motifB.push({ step: i, note: scale[Math.floor(scale.length/2 + prob * (scale.length/2 - 1))], vel: 0.25 + (prob * 0.15) });
+          }
+        }
 
-          if (Math.random() > 0.6) sequence.push({ time: `${bar}:2:3`, type: "snare", vel: 0.03 });
-
-        } else {
-          // --- LO-FI 模式 (維持原樣) ---
+        for (let bar = 0; bar < 16; bar++) {
           sequence.push({ time: `${bar}:0:0`, type: "kick" });
           sequence.push({ time: `${bar}:2:0`, type: "kick" });
           sequence.push({ time: `${bar}:1:0`, type: "snare" });
@@ -459,7 +441,6 @@
 
           const phraseIndex = Math.floor(bar / 4); 
           const currentMotif = (phraseIndex === 2) ? motifB : motifA;
-
           const rootIdx = (bar % 4 < 2) ? 0 : 2;
           const chord = [scale[rootIdx].replace('3','2'), scale[(rootIdx+2)%scale.length].replace('3','2'), scale[(rootIdx+4)%scale.length].replace('3','2')];
           sequence.push({ time: `${bar}:0:0`, type: "piano", notes: chord, dur: "1n", vel: 0.18 }); 
@@ -485,10 +466,10 @@
 
       new Tone.Part((time, v) => {
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
-        if (v.type === "snare") synths.snare.triggerAttackRelease(time, "32n", v.vel || 0.3);
-        if (v.type === "hihat") synths.hihat.triggerAttackRelease("C8", "32n", time, v.vel || 0.08);
+        if (v.type === "snare") synths.snare.triggerAttack(time);
+        if (v.type === "hihat") synths.hihat.triggerAttackRelease("C8", "32n", time, 0.08);
         if (v.type === "crackle") synths.crackles.triggerAttackRelease("C2", "16n", time, 0.1); 
-        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time);
+        if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "8n", time);
         if (v.type === "bassCounter") synths.bassCounter.triggerAttackRelease(v.note, "16n", time);
         if (v.type === "piano") {
           const inst = synths.piano.loaded ? synths.piano : new Tone.PolySynth().toDestination();
