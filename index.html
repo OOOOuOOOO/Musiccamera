@@ -16,7 +16,6 @@
       background: #e0e0e0; font-family: 'DM Sans', sans-serif;
     }
 
-    /* --- 擬物化機身外觀 --- */
     .camera-container {
       width: 380px; background: linear-gradient(180deg, #e8e8e8 0%, #d1d1d1 100%);
       border-radius: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 1px 2px #fff;
@@ -75,15 +74,9 @@
     .sub-btn:enabled { color: #fff; }
 
     #recBtn.recording {
-      background: #b30000;
-      color: #fff;
-      animation: pulse 1.5s infinite;
+      background: #b30000; color: #fff; animation: pulse 1.5s infinite;
     }
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.6; }
-      100% { opacity: 1; }
-    }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
     .analysis-text {
       font-family: 'Noto Serif TC', serif; font-size: 16px; color: #fff;
@@ -109,40 +102,19 @@
     .film-inner {
       width: 100%; aspect-ratio: 1; background: #222; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
-      position: relative;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.6); position: relative;
     }
     #preview { width: 100%; height: 100%; object-fit: contain; opacity: 0; }
-    
-    #preview.develop { 
-      opacity: 1; 
-      transition: opacity 3.5s; 
-      filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2);
-    }
-
+    #preview.develop { opacity: 1; transition: opacity 3.5s; filter: sepia(0.25) contrast(0.9) brightness(1.1) saturate(1.2); }
     .film-inner::after {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(135deg, 
-        rgba(255, 80, 0, 0.45) 0%, 
-        rgba(255, 150, 50, 0.2) 35%, 
-        transparent 70%
-      );
-      pointer-events: none;
-      mix-blend-mode: screen; 
-      opacity: 0;
+      content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, rgba(255, 80, 0, 0.45) 0%, rgba(255, 150, 50, 0.2) 35%, transparent 70%);
+      pointer-events: none; mix-blend-mode: screen; opacity: 0;
     }
-
-    .polaroid-film.eject .film-inner::after {
-      opacity: 1;
-      transition: opacity 4s 1s; 
-    }
-    
+    .polaroid-film.eject .film-inner::after { opacity: 1; transition: opacity 4s 1s; }
     .film-date {
       position: absolute; bottom: 12px; right: 15px;
-      font-family: 'Nanum Pen Script', cursive;
-      font-size: 20px; color: #444; opacity: 0;
+      font-family: 'Nanum Pen Script', cursive; font-size: 20px; color: #444; opacity: 0;
     }
     .film-date.show { opacity: 1; transition: opacity 2s 1.5s; }
 
@@ -293,8 +265,7 @@
         let tagIndex = (r + g + b) % tags.length;
         if (bri > 210) tagIndex = 2; 
         if (bri < 50) tagIndex = 8;  
-        // 藍色判定優化
-        let isBlueMood = (b > r + 40);
+        let isBlueMood = (b > r + 50);
         
         currentFeatures = { 
           tagInfo: tagMatrix[tags[tagIndex]],
@@ -325,39 +296,22 @@
     async function initAudio() {
       if (audioInited) return;
       await Tone.start();
-      
-      synths.masterLPF = new Tone.Filter({ frequency: 800, type: "lowpass", rolloff: -24, Q: 1 }).toDestination();
-      synths.reverb = new Tone.Reverb({ decay: 6, wet: 0.5 }).connect(synths.masterLPF);
-      
+      synths.masterLPF = new Tone.Filter({ frequency: 800, type: "lowpass", rolloff: -24 }).toDestination();
+      synths.reverb = new Tone.Reverb({ decay: 5, wet: 0.5 }).connect(synths.masterLPF);
       synths.pinkNoise = new Tone.Noise("pink").connect(new Tone.Filter(600, "lowpass").connect(synths.masterLPF));
       synths.pinkNoise.volume.value = -Infinity;
       synths.pinkNoise.start();
-
-      synths.crackles = new Tone.MembraneSynth({
-        pitchDecay: 0.002, octaves: 2, envelope: { attack: 0.001, decay: 0.02, sustain: 0 }
-      }).connect(new Tone.Filter(4000, "highpass").toDestination());
+      synths.crackles = new Tone.MembraneSynth({ pitchDecay: 0.002, octaves: 2, envelope: { attack: 0.001, decay: 0.02, sustain: 0 } }).connect(new Tone.Filter(4000, "highpass").toDestination());
       synths.crackles.volume.value = -30;
-
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
         onload: () => { synths.piano.release = 2.5; } 
       }).connect(synths.reverb);
-
-      synths.hihat = new Tone.MetalSynth({
-        frequency: 250, envelope: { attack: 0.001, decay: 0.06, release: 0.06 },
-        volume: -32
-      }).connect(new Tone.Filter(8000, "highpass").connect(synths.masterLPF));
-
-      synths.bass = new Tone.MonoSynth({ 
-        oscillator: { type: "triangle" }, 
-        envelope: { attack: 0.05, release: 1 },
-        volume: -10 
-      }).connect(synths.masterLPF);
-
+      synths.hihat = new Tone.MetalSynth({ frequency: 250, envelope: { attack: 0.001, decay: 0.05 }, volume: -35 }).connect(new Tone.Filter(8000, "highpass").connect(synths.masterLPF));
+      synths.bass = new Tone.MonoSynth({ oscillator: { type: "triangle" }, envelope: { attack: 0.05, release: 0.8 }, volume: -10 }).connect(synths.masterLPF);
       synths.kick = new Tone.MembraneSynth({ volume: -15 }).connect(synths.masterLPF);
-      synths.snare = new Tone.NoiseSynth({ volume: -30 }).connect(synths.masterLPF);
-      
+      synths.snare = new Tone.NoiseSynth({ volume: -32 }).connect(synths.masterLPF);
       audioInited = true;
     }
 
@@ -370,110 +324,72 @@
       
       const f = currentFeatures;
       const info = f.tagInfo;
-      const finalBpm = info.bpmBase + ((f.brightness - 128) / 8);
-      Tone.Transport.bpm.value = Math.max(50, Math.min(finalBpm, 125));
-      
+      Tone.Transport.bpm.value = Math.max(50, Math.min(info.bpmBase + ((f.brightness - 128) / 8), 125));
       synths.masterLPF.frequency.rampTo(info.lpf + (f.brightness * 2), 2);
       synths.reverb.wet.value = info.reverb;
 
-      // 雜訊僅在 Lo-Fi 開啟
-      if (musicMode === 'lofi') {
-        synths.pinkNoise.volume.rampTo(-26, 3);
-      } else {
-        synths.pinkNoise.volume.rampTo(-Infinity, 1);
-      }
-
-      // --- JAZZ 音階邏輯：藍色照片使用 Blues Scale ---
-      const majorScale = ["C3", "D3", "E3", "G3", "A3", "C4", "D4", "E4", "G4", "A4"];
-      const bluesScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4", "Eb4", "F4", "Gb4"];
-      const scale = f.isBlueMood ? bluesScale : majorScale;
-      
-      // Walking Bass 音階
-      const bassScale = f.isBlueMood ? ["C2", "Eb2", "F2", "Gb2", "G2", "Bb2"] : ["C2", "D2", "E2", "F2", "G2", "A2"];
+      if (musicMode === 'lofi') synths.pinkNoise.volume.rampTo(-26, 3);
+      else synths.pinkNoise.volume.rampTo(-Infinity, 1);
 
       const sequence = [];
-      // JAZZ 模式下增加強烈的 Swing
-      Tone.Transport.swing = (musicMode === 'jazz') ? 0.48 : 0.12; 
+      Tone.Transport.swing = (musicMode === 'jazz') ? 0.55 : 0.1; 
 
-      // --- 16 小節結構生成 ---
-      // A-A-B-A 爵士曲式
-      const motifA = [];
-      const motifB = []; // 橋段變奏
-      
-      for(let i=0; i<4; i++) {
-        let prob = Math.abs(Math.sin(f.seed + i));
-        if (prob > 0.4) motifA.push({ step: i, note: scale[Math.floor(prob * 6)], vel: 0.3 });
-        
-        let probB = Math.abs(Math.cos(f.seed * 2 + i));
-        if (probB > 0.3) motifB.push({ step: i, note: scale[Math.floor(probB * 8)], vel: 0.4 });
-      }
+      // --- 爵士音階與 Lo-fi 分離 ---
+      const lofiScale = ["C3", "D3", "E3", "G3", "A3", "C4"];
+      const jazzScale = f.isBlueMood ? ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"] : ["C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4"];
+      const bassScale = f.isBlueMood ? ["C2", "Eb2", "F2", "Gb2", "G2"] : ["C2", "D2", "E2", "F2", "G2"];
 
+      // --- 縮短重複，每 4 小節一次結構循環 (A-A'-B-A'') ---
       for (let bar = 0; bar < 16; bar++) {
-        // --- 節奏部 (Drums) ---
+        const phraseType = Math.floor(bar / 4); // 0:A, 1:A', 2:B(Bridge), 3:A''(End)
+        
+        // 爵士節奏
         if (musicMode === 'jazz') {
-          // 爵士鼓點：Ride Cymbal 節奏 (1 - 2 & 3 - 4 &)
           sequence.push({ time: `${bar}:0:0`, type: "hihat", vel: 0.1 });
           sequence.push({ time: `${bar}:1:0`, type: "hihat", vel: 0.1 });
-          sequence.push({ time: `${bar}:1:2`, type: "hihat", vel: 0.05 });
+          sequence.push({ time: `${bar}:1:2`, type: "hihat", vel: 0.05 }); // Swing feel
           sequence.push({ time: `${bar}:2:0`, type: "hihat", vel: 0.1 });
           sequence.push({ time: `${bar}:3:0`, type: "hihat", vel: 0.1 });
           sequence.push({ time: `${bar}:3:2`, type: "hihat", vel: 0.05 });
           
-          // 輕微的小鼓 Ghost Notes
-          if (bar % 2 === 1) sequence.push({ time: `${bar}:2:2`, type: "snare", vel: 0.05 });
+          // Walking Bass (每拍必彈)
+          for (let beat = 0; beat < 4; beat++) {
+            let nIdx = Math.abs(Math.floor(Math.sin(f.seed + bar * 4 + beat) * bassScale.length));
+            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: bassScale[nIdx % bassScale.length] });
+          }
+
+          // 爵士鋼琴：即興隨性邏輯
+          for (let beat = 0; beat < 4; beat++) {
+            let rnd = Math.abs(Math.cos(f.seed + bar + beat));
+            // 隨機切分音：機率性落在後半拍
+            let offbeat = rnd > 0.7 ? "2" : "0";
+            
+            if (phraseType === 2) { // Bridge: 變化更大、更密集
+               if (rnd > 0.4) {
+                 let noteIdx = Math.floor(rnd * jazzScale.length);
+                 sequence.push({ time: `${bar}:${beat}:${offbeat}`, type: "piano", notes: [jazzScale[noteIdx]], dur: "8n", vel: 0.3 });
+               }
+            } else { // 主題 A 段
+               if (beat % 2 === 0 && rnd > 0.5) {
+                 let noteIdx = Math.floor(rnd * (jazzScale.length-2));
+                 sequence.push({ time: `${bar}:${beat}:${offbeat}`, type: "piano", notes: [jazzScale[noteIdx]], dur: "4n", vel: 0.25 });
+               }
+            }
+          }
         } else {
+          // Lo-Fi 模式：維持原本穩定好聽的邏輯
           sequence.push({ time: `${bar}:0:0`, type: "kick" });
           sequence.push({ time: `${bar}:2:0`, type: "kick" });
           sequence.push({ time: `${bar}:1:0`, type: "snare" });
           sequence.push({ time: `${bar}:3:0`, type: "snare" });
-          for (let beat = 0; beat < 4; beat++) sequence.push({ time: `${bar}:${beat}:2`, type: "hihat" });
-        }
-
-        // --- 爵士/樂曲邏輯 ---
-        if (musicMode === 'jazz') {
-          // 1. Walking Bass (每拍必彈)
-          for (let beat = 0; beat < 4; beat++) {
-            // 利用 seed 確保每張照片行走路線不同
-            let nIdx = Math.abs(Math.floor(Math.sin(f.seed + bar + beat) * bassScale.length));
-            sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: bassScale[nIdx % bassScale.length] });
-          }
-
-          // 2. 鋼琴旋律 (16小節 AABA 結構)
-          const isBridge = (bar >= 8 && bar < 12);
-          const currentMotif = isBridge ? motifB : motifA;
-
-          currentMotif.forEach(m => {
-            let note = m.note;
-            let time = `${bar}:${m.step}:0`;
-            
-            // 段落 B (Bridge) 旋律更高亢且密集
-            if (isBridge) {
-              let idx = scale.indexOf(note);
-              note = scale[Math.min(scale.length-1, idx + 2)];
-              if (Math.random() > 0.5) sequence.push({ time: `${bar}:${m.step}:2`, type: "piano", notes: [scale[idx+1]], dur: "8n", vel: 0.3 });
-            }
-            
-            sequence.push({ time: time, type: "piano", notes: [note], dur: "4n", vel: m.vel + (Math.random()*0.1) });
-          });
           
-          // 爵士和弦背景 (Comping)
+          const rootIdx = (bar % 4 < 2) ? 0 : 2;
+          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: [lofiScale[rootIdx].replace('3','2')], dur: "1n", vel: 0.15 });
+
+          // 簡單旋律
           if (bar % 2 === 0) {
-            let chord = f.isBlueMood ? ["C3", "Eb3", "G3", "Bb3"] : ["C3", "E3", "G3", "A3"];
-            sequence.push({ time: `${bar}:0:2`, type: "piano", notes: chord, dur: "2n", vel: 0.15 });
+            sequence.push({ time: `${bar}:0:2`, type: "piano", notes: [lofiScale[Math.floor(Math.abs(Math.sin(f.seed))*lofiScale.length)]], dur: "2n", vel: 0.2 });
           }
-
-        } else {
-          // --- LO-FI 模式 (保持你滿意的版本) ---
-          const isSecondPhrase = bar >= 8;
-          const rootIdx = (bar % 8 < 4) ? 0 : 2;
-          const chord = [scale[rootIdx].replace('3','2'), scale[(rootIdx+2)%scale.length].replace('3','2')];
-          sequence.push({ time: `${bar}:0:0`, type: "piano", notes: chord, dur: "1n", vel: 0.2 }); 
-          
-          // 右手旋律邏輯 (省略細節以維持運行)
-          motifA.forEach(m => {
-            const noteTime = `${bar}:${Math.floor(m.step)}:0`;
-            sequence.push({ time: noteTime, type: "piano", notes: [m.note], dur: "2n", vel: m.vel });
-          });
         }
       }
 
@@ -482,35 +398,23 @@
         if (v.type === "snare") synths.snare.triggerAttackRelease(time, "32n", v.vel || 0.3);
         if (v.type === "hihat") synths.hihat.triggerAttackRelease("C8", "32n", time, v.vel || 0.08);
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "4n", time);
-        if (v.type === "piano") {
-          const inst = synths.piano.loaded ? synths.piano : new Tone.PolySynth().toDestination();
-          inst.triggerAttackRelease(v.notes, v.dur || "4n", time, v.vel || 0.3);
-        }
+        if (v.type === "piano") synths.piano.triggerAttackRelease(v.notes, v.dur || "4n", time, v.vel || 0.3);
       }, sequence).start(0);
 
       Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
       setTimeout(() => { Tone.Transport.start(); stopBtn.disabled = false; playBtn.disabled = true; }, 50);
     });
     
-    stopBtn.addEventListener('click', () => { 
-      Tone.Transport.stop(); 
-      synths.pinkNoise.volume.rampTo(-Infinity, 1.5);
-      playBtn.disabled = false; stopBtn.disabled = true; 
-    });
+    stopBtn.addEventListener('click', () => { Tone.Transport.stop(); synths.pinkNoise.volume.rampTo(-Infinity, 1.5); playBtn.disabled = false; stopBtn.disabled = true; });
 
     recBtn.addEventListener('click', () => {
       if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-        recBtn.classList.remove('recording');
-        recBtn.innerText = "REC / SAVE";
-      } else {
-        startRecording();
-      }
+        mediaRecorder.stop(); recBtn.classList.remove('recording'); recBtn.innerText = "REC / SAVE";
+      } else startRecording();
     });
 
     async function startRecording() {
-      await initAudio();
-      recordedChunks = [];
+      await initAudio(); recordedChunks = [];
       const types = ["video/mp4", "video/webm"];
       let supportedType = types.find(type => MediaRecorder.isTypeSupported(type));
       recordCanvas.width = 400; recordCanvas.height = 500;
@@ -518,10 +422,9 @@
       function updateCanvas() {
         if (!mediaRecorder || mediaRecorder.state !== "recording") return;
         rCtx.fillStyle = "#fff"; rCtx.fillRect(0, 0, 400, 500);
-        const img = preview;
-        if (img.complete) {
-          const sw = img.naturalWidth, sh = img.naturalHeight, min = Math.min(sw, sh);
-          rCtx.drawImage(img, (sw-min)/2, (sh-min)/2, min, min, 20, 20, 360, 360);
+        if (preview.complete) {
+          const sw = preview.naturalWidth, sh = preview.naturalHeight, min = Math.min(sw, sh);
+          rCtx.drawImage(preview, (sw-min)/2, (sh-min)/2, min, min, 20, 20, 360, 360);
         }
         rCtx.font = "24px 'Nanum Pen Script'"; rCtx.fillStyle = "#444";
         rCtx.fillText(filmDate.innerText, 280, 460);
@@ -537,11 +440,8 @@
         const url = URL.createObjectURL(new Blob(recordedChunks, { type: supportedType }));
         const a = document.createElement("a"); a.href = url; a.download = `Memory_${Date.now()}.mp4`; a.click();
       };
-      mediaRecorder.start();
-      recBtn.classList.add('recording');
-      recBtn.innerText = "STOP & SAVE";
-      updateCanvas();
-      if (Tone.Transport.state !== "started") playBtn.click();
+      mediaRecorder.start(); recBtn.classList.add('recording'); recBtn.innerText = "STOP & SAVE";
+      updateCanvas(); if (Tone.Transport.state !== "started") playBtn.click();
     }
   </script>
 </body>
