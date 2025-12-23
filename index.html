@@ -332,10 +332,12 @@
       synths.pinkNoise.volume.value = -Infinity;
       synths.pinkNoise.start();
 
+      // --- 優化點：柔化「噠噠」聲 ---
       synths.crackles = new Tone.MembraneSynth({
-        pitchDecay: 0.002, octaves: 2, envelope: { attack: 0.001, decay: 0.02, sustain: 0 }
-      }).connect(new Tone.Filter(3000, "highpass").toDestination());
-      synths.crackles.volume.value = -28;
+        pitchDecay: 0.05, octaves: 1, 
+        envelope: { attack: 0.01, decay: 0.1, sustain: 0.01, release: 0.2 }
+      }).connect(new Tone.Filter(1200, "lowpass").connect(synths.reverb)); // 加入低通濾波與殘響使其融合
+      synths.crackles.volume.value = -35;
 
       synths.piano = new Tone.Sampler({
         urls: { A1: "A1.mp3", C4: "C4.mp3" },
@@ -349,6 +351,14 @@
       }).connect(new Tone.Filter(8000, "highpass").connect(synths.masterLPF));
 
       synths.bass = new Tone.MonoSynth({ oscillator: { type: "sine" }, volume: -12 }).connect(synths.masterLPF);
+      
+      // --- 優化點：新增對位 Bass ---
+      synths.bassCounter = new Tone.MonoSynth({ 
+        oscillator: { type: "triangle" }, 
+        volume: -18,
+        envelope: { attack: 0.1, release: 1 } 
+      }).connect(synths.masterLPF);
+
       synths.kick = new Tone.MembraneSynth({ volume: -15 }).connect(synths.masterLPF);
       synths.snare = new Tone.NoiseSynth({ volume: -30 }).connect(synths.masterLPF);
       
@@ -377,12 +387,11 @@
       }
 
       const scale = ["C3", "E3", "G3", "B3", "D4", "G4", "A4", "B4", "D5", "E5", "G5"];
-      const jazzScale = ["C2", "Eb2", "F2", "Gb2", "G2", "Bb2", "C3"];
+      const jazzScale = ["C2", "Eb2", "F2", "Gb2", "G2", "Bb2", "C3", "Eb3", "F3"];
 
       const sequence = [];
       Tone.Transport.swing = (musicMode === 'jazz') ? 0.45 : 0.12;
 
-      // 生成動機 (用於 Lo-Fi)
       const motifA = [];
       for(let i=0; i<4; i++) {
         const prob = Math.abs(Math.sin(f.seed + i));
@@ -399,35 +408,37 @@
       }
 
       for (let bar = 0; bar < 16; bar++) {
-        // 基礎節奏 (大鼓小鼓)
         sequence.push({ time: `${bar}:0:0`, type: "kick" });
         sequence.push({ time: `${bar}:2:0`, type: "kick" });
         sequence.push({ time: `${bar}:1:0`, type: "snare" });
         sequence.push({ time: `${bar}:3:0`, type: "snare" });
 
         if (musicMode === 'jazz') {
-          // --- 爵士模式：刪除鋼琴，僅保留 Bass 與 Hi-hat ---
+          // --- 爵士模式：雙 Bass 層次邏輯 ---
           for (let beat = 0; beat < 4; beat++) {
-            const nIdx = (f.seed + bar + beat) % jazzScale.length;
+            // Walking Bass (主要骨架)
+            const nIdx = (f.seed + bar + beat) % 6;
             sequence.push({ time: `${bar}:${beat}:0`, type: "bass", note: jazzScale[nIdx] });
+            
+            // 對位 Bass (隨機在後半拍點綴高音部)
+            if (Math.abs(Math.sin(f.seed + bar + beat)) > 0.7) {
+                const cNote = jazzScale[6 + (beat % 3)];
+                sequence.push({ time: `${bar}:${beat}:2`, type: "bassCounter", note: cNote });
+            }
             sequence.push({ time: `${bar}:${beat}:2`, type: "hihat" });
           }
         } else {
-          // --- LO-FI 模式：優化結構，縮短重複感 ---
-          // 每 4 小節一次結構循環 A(0-3) -> A'(4-7) -> B(8-11) -> A''(12-15)
+          // --- LO-FI 模式：縮短重複感，4小節循環結構 ---
           const phraseIndex = Math.floor(bar / 4); 
           const currentMotif = (phraseIndex === 2) ? motifB : motifA;
 
-          // 左手伴奏 (三和弦)
           const rootIdx = (bar % 4 < 2) ? 0 : 2;
           const chord = [scale[rootIdx].replace('3','2'), scale[(rootIdx+2)%scale.length].replace('3','2'), scale[(rootIdx+4)%scale.length].replace('3','2')];
           sequence.push({ time: `${bar}:0:0`, type: "piano", notes: chord, dur: "1n", vel: 0.18 }); 
 
-          // 右手旋律 (4小節內產生變奏)
           currentMotif.forEach(m => {
             let finalNote = m.note;
             let timeOffset = 0;
-            // 在 A' 和 A'' 中加入時間偏移或音高微調，增加變化
             if (bar % 4 === 1 || bar % 4 === 3) {
               const idx = scale.indexOf(m.note);
               finalNote = scale[Math.max(0, Math.min(scale.length-1, idx + (f.seed % 2 === 0 ? 1 : -1)))];
@@ -437,11 +448,11 @@
             sequence.push({ time: noteTime, type: "piano", notes: [finalNote], dur: "2n", vel: m.vel });
           });
 
-          // Hi-hat 與氣氛
           for (let beat = 0; beat < 4; beat++) {
             sequence.push({ time: `${bar}:${beat}:2`, type: "hihat" });
           }
-          for(let i=0; i<4; i++) if(Math.random() > 0.7) sequence.push({ time: `${bar}:${i}:${Math.random()}`, type: "crackle" });
+          // 「噠噠」聲：機率性觸發
+          for(let i=0; i<4; i++) if(Math.random() > 0.75) sequence.push({ time: `${bar}:${i}:${Math.random()}`, type: "crackle" });
         }
       }
 
@@ -449,8 +460,9 @@
         if (v.type === "kick") synths.kick.triggerAttackRelease("C1", "8n", time);
         if (v.type === "snare") synths.snare.triggerAttack(time);
         if (v.type === "hihat") synths.hihat.triggerAttackRelease("C8", "32n", time, 0.08);
-        if (v.type === "crackle") synths.crackles.triggerAttackRelease("C8", "32n", time, 0.12);
+        if (v.type === "crackle") synths.crackles.triggerAttackRelease("C2", "16n", time, 0.1); // 降低頻率與力度
         if (v.type === "bass") synths.bass.triggerAttackRelease(v.note, "8n", time);
+        if (v.type === "bassCounter") synths.bassCounter.triggerAttackRelease(v.note, "16n", time);
         if (v.type === "piano") {
           const inst = synths.piano.loaded ? synths.piano : new Tone.PolySynth().toDestination();
           inst.triggerAttackRelease(v.notes, v.dur || "4n", time, v.vel || 0.35);
