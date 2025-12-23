@@ -255,11 +255,23 @@
       'Static': { text: "凝結永恆的靜物", ambient: 'Fire', density: 0.1 }
     };
 
-    lofiModeBtn.addEventListener('click', () => { musicMode = 'lofi'; lofiModeBtn.classList.add('active'); jazzModeBtn.classList.remove('active'); });
-    jazzModeBtn.addEventListener('click', () => { musicMode = 'jazz'; jazzModeBtn.classList.add('active'); lofiModeBtn.classList.remove('active'); });
+    // --- 修改：模式切換時重置播放狀態 ---
+    function resetAndSwitch(mode) {
+      musicMode = mode;
+      stopMusic();
+      if (mode === 'lofi') {
+        lofiModeBtn.classList.add('active');
+        jazzModeBtn.classList.remove('active');
+      } else {
+        jazzModeBtn.classList.add('active');
+        lofiModeBtn.classList.remove('active');
+      }
+    }
+
+    lofiModeBtn.addEventListener('click', () => resetAndSwitch('lofi'));
+    jazzModeBtn.addEventListener('click', () => resetAndSwitch('jazz'));
 
     async function startCamera() {
-      initAudio().catch(() => {}); // 背景先行預熱，不等待，不卡死
       if (stream) { stream.getTracks().forEach(t => t.stop()); }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
@@ -270,7 +282,7 @@
     function stopCamera() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } cameraOverlay.style.display = 'none'; }
     openCamBtn.addEventListener('click', startCamera);
     closeOverlay.addEventListener('click', stopCamera);
-    albumBtn.addEventListener('click', () => { initAudio().catch(()=>{}); fileInput.click(); });
+    albumBtn.addEventListener('click', () => fileInput.click());
     switchCamBtn.addEventListener('click', () => {
       currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
       startCamera(); 
@@ -350,13 +362,18 @@
     }
 
     playBtn.addEventListener('click', async () => {
+      if (!currentFeatures) return;
       await initAudio();
       await Tone.context.resume();
-      Tone.Transport.stop(); Tone.Transport.cancel();
+      
+      // 停止舊的播放
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
       
       const f = currentFeatures;
       const info = f.tagInfo;
 
+      // 環境音處理
       Object.values(synths.ambients).forEach(p => p.volume.rampTo(-Infinity, 1));
       if (synths.ambients[info.ambient]) {
         synths.ambients[info.ambient].start();
@@ -369,7 +386,6 @@
 
       for (let bar = 0; bar < 16; bar++) {
         if (musicMode === 'jazz') {
-          // 爵士部分照舊
           const jazzScale = ["C3", "Eb3", "F3", "Gb3", "G3", "Bb3", "C4"];
           if (bar % 2 === 0) sequence.push({ time: `${bar}:0:0`, type: "kick" });
           sequence.push({ time: `${bar}:1:0`, type: "snare" });
@@ -379,7 +395,6 @@
             }
           }
         } else {
-          // Piano 流動鋼琴邏輯
           const bassRoot = scale[bar % 3].replace('4','2');
           sequence.push({ time: `${bar}:0:0`, type: "piano", note: bassRoot, dur: "2n", vel: 0.3 });
           sequence.push({ time: `${bar}:2:0`, type: "piano", note: scale[0].replace('4','2'), dur: "2n", vel: 0.2 });
@@ -399,16 +414,28 @@
         }
       }, sequence).start(0);
 
-      Tone.Transport.loop = true; Tone.Transport.loopEnd = "16m";
+      Tone.Transport.loop = true; 
+      Tone.Transport.loopEnd = "16m";
       Tone.Transport.start("+0.1");
-      stopBtn.disabled = false; playBtn.disabled = true;
+      
+      stopBtn.disabled = false; 
+      playBtn.disabled = true;
     });
+
+    function stopMusic() {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+      if (audioInited) {
+        Object.values(synths.ambients).forEach(p => {
+          p.volume.rampTo(-Infinity, 0.5);
+          setTimeout(() => p.stop(), 500);
+        });
+      }
+      playBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
     
-    stopBtn.addEventListener('click', () => { 
-      Tone.Transport.stop(); 
-      Object.values(synths.ambients).forEach(p => p.volume.rampTo(-Infinity, 1));
-      playBtn.disabled = false; stopBtn.disabled = true; 
-    });
+    stopBtn.addEventListener('click', stopMusic);
 
     recBtn.addEventListener('click', () => {
       if (mediaRecorder && mediaRecorder.state === "recording") {
